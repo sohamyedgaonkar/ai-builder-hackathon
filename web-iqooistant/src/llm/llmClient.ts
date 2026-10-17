@@ -1,4 +1,5 @@
-import { getOpenRouterApiKey, LLM_MODEL } from '../config';
+import { getOpenRouterApiKey, getVertexApiKey, LLM_MODEL, VERTEX_AI_MODEL, LLM_PROVIDER } from '../config';
+import { BigQueryTelemetry } from '../services/googleCloudServices';
 import { browse_menu, add_to_cart, view_cart, place_order } from '../tools/foodTools';
 import { search_hotels, select_hotel, book_trip } from '../tools/travelTools';
 import { search_buses, select_bus, book_bus } from '../tools/busTools';
@@ -207,15 +208,23 @@ export async function chatWithLLM(
   ];
 
   try {
-    const endpoint = useLocalLLM ? 'http://127.0.0.1:8080/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
+    // Google Cloud Vertex AI / Gemini 2.5 Flash Endpoint Routing
+    const vertexKey = getVertexApiKey();
+    const isVertexDirect = (LLM_PROVIDER === 'vertex' || LLM_PROVIDER === 'gemini') && Boolean(vertexKey);
+    const endpoint = useLocalLLM 
+      ? 'http://127.0.0.1:8080/v1/chat/completions' 
+      : isVertexDirect
+        ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     
     if (!useLocalLLM) {
-      const activeKey = getOpenRouterApiKey();
+      const activeKey = isVertexDirect ? getVertexApiKey() : getOpenRouterApiKey();
       if (!activeKey) {
-        throw new Error("Missing OpenRouter API key. Please click 'App Settings' in the sidebar to enter your key.");
+        throw new Error("Missing API key. Please click 'App Settings' in the sidebar to enter your key.");
       }
       headers['Authorization'] = `Bearer ${activeKey}`;
     }
@@ -230,8 +239,14 @@ export async function chatWithLLM(
       return true;
     });
 
+    const activeModel = useLocalLLM 
+      ? 'local-model' 
+      : isVertexDirect 
+        ? VERTEX_AI_MODEL 
+        : LLM_MODEL;
+
     const bodyObj: any = {
-      model: useLocalLLM ? 'local-model' : LLM_MODEL,
+      model: activeModel,
       messages: apiMessages,
     };
 
@@ -240,6 +255,7 @@ export async function chatWithLLM(
       bodyObj.tool_choice = 'auto';
     }
 
+    const startTime = Date.now();
     const response = await fetch(endpoint, {
       method: 'POST',
       headers,
@@ -248,12 +264,20 @@ export async function chatWithLLM(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter API Error:', errorText);
-      throw new Error(`OpenRouter API Error: ${response.status} ${errorText}`);
+      console.error('Google Vertex AI / Gemini API Error:', errorText);
+      throw new Error(`Google Vertex AI / Gemini Error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
     const message = data.choices[0].message;
+
+    // Log request latency to Google BigQuery telemetry
+    BigQueryTelemetry.logEvent({
+      sessionId: 'sess-' + startTime,
+      eventType: 'INTENT_DISCOVERY',
+      latencyMs: Date.now() - startTime,
+      metadata: { model: activeModel, provider: isVertexDirect ? 'google-vertex-ai' : 'openrouter-gateway' }
+    });
 
     // Check if the LLM decided to call a tool
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -299,6 +323,14 @@ export async function chatWithLLM(
         // Trigger UI callback and await if it returns a Promise
         // Do this AFTER executing the tool so payment is initiated in the backend
         const uiResult = await onToolCall(functionName, functionArgs, result);
+
+        // Stream tool execution event to Google BigQuery
+        BigQueryTelemetry.logEvent({
+          sessionId: 'sess-tool-' + Date.now(),
+          eventType: 'TOOL_INVOCATION',
+          toolName: functionName,
+          amount: result?.total || functionArgs?.total || undefined,
+        });
 
         // Sanitize result so LLM doesn't leak internal links
         if (result && typeof result === 'object') {

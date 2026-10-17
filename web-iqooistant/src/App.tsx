@@ -60,8 +60,22 @@ function App() {
 
   const startListening = () => {
     if (recognitionRef.current) {
-      setIsListening(true);
-      recognitionRef.current.start();
+      if (isListening) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.warn('Speech recognition stop error:', e);
+        }
+        setIsListening(false);
+        return;
+      }
+      try {
+        setIsListening(true);
+        recognitionRef.current.start();
+      } catch (e) {
+        console.warn('Speech recognition start error:', e);
+        setIsListening(false);
+      }
     } else {
       alert("Speech recognition not supported in this browser.");
     }
@@ -230,7 +244,7 @@ function App() {
         type: 'assistant',
         text: `⚠️ **API Error:** ${errMsg}`
       }]);
-      if (errMsg.includes('Missing OpenRouter API key') || errMsg.includes('401') || errMsg.includes('Unauthorized')) {
+      if (errMsg.includes('Missing') || errMsg.includes('API key') || errMsg.includes('401') || errMsg.includes('Unauthorized')) {
         setApiKeyInput(getOpenRouterApiKey());
         setSettingsModalVisible(true);
       }

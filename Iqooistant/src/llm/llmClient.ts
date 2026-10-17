@@ -1,4 +1,4 @@
-import { OPENROUTER_API_KEY, LLM_MODEL } from '../config';
+import { OPENROUTER_API_KEY, VERTEX_AI_KEY, LLM_MODEL, VERTEX_AI_MODEL, LLM_PROVIDER } from '../config';
 import { browse_menu, add_to_cart, view_cart, place_order } from '../tools/foodTools';
 import { search_hotels, select_hotel, book_trip } from '../tools/travelTools';
 import { search_buses, select_bus, book_bus } from '../tools/busTools';
@@ -207,13 +207,21 @@ export async function chatWithLLM(
   ];
 
   try {
-    const endpoint = useLocalLLM ? 'http://127.0.0.1:8080/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
+    // Google Cloud Vertex AI / Gemini 2.5 Flash Endpoint Routing
+    const isVertexDirect = (LLM_PROVIDER === 'vertex' || LLM_PROVIDER === 'gemini') && Boolean(VERTEX_AI_KEY);
+    const endpoint = useLocalLLM 
+      ? 'http://127.0.0.1:8080/v1/chat/completions' 
+      : isVertexDirect
+        ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+        : 'https://openrouter.ai/api/v1/chat/completions';
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     
-    if (!useLocalLLM) {
-      headers['Authorization'] = `Bearer ${OPENROUTER_API_KEY}`;
+    const activeApiKey = isVertexDirect ? VERTEX_AI_KEY : OPENROUTER_API_KEY;
+    if (!useLocalLLM && activeApiKey) {
+      headers['Authorization'] = `Bearer ${activeApiKey}`;
     }
 
     const filteredTools = tools.filter(t => {
@@ -226,8 +234,14 @@ export async function chatWithLLM(
       return true;
     });
 
+    const activeModel = useLocalLLM 
+      ? 'local-model' 
+      : isVertexDirect 
+        ? VERTEX_AI_MODEL 
+        : LLM_MODEL;
+
     const bodyObj: any = {
-      model: useLocalLLM ? 'local-model' : LLM_MODEL,
+      model: activeModel,
       messages: apiMessages,
     };
 
@@ -244,8 +258,8 @@ export async function chatWithLLM(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter API Error:', errorText);
-      throw new Error(`OpenRouter API Error: ${response.status} ${errorText}`);
+      console.error('Google Vertex AI / Gemini API Error:', errorText);
+      throw new Error(`Google Vertex AI / Gemini Error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();

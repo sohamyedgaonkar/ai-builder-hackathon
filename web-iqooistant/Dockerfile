@@ -12,14 +12,16 @@ RUN npm ci
 # Copy project files
 COPY . ./
 
-# Accept API key as build argument (fallback to .env if present)
+# Accept API key and Vertex AI build arguments
 ARG VITE_OPENROUTER_API_KEY
 ENV VITE_OPENROUTER_API_KEY=$VITE_OPENROUTER_API_KEY
+ARG VITE_VERTEX_AI_KEY
+ENV VITE_VERTEX_AI_KEY=$VITE_VERTEX_AI_KEY
 
 # Build production bundle into /app/dist
 RUN npm run build
 
-# Stage 2: Serve with ultra-lightweight Nginx (Alpine)
+# Stage 2: Serve with ultra-lightweight Nginx (Alpine) (~25MB image)
 FROM nginx:alpine
 
 # Remove default nginx website
@@ -38,5 +40,4 @@ RUN chmod +x /docker-entrypoint.d/40-generate-env.sh
 # Cloud Run routes to port 8080 by default
 EXPOSE 8080
 
-# Run nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]

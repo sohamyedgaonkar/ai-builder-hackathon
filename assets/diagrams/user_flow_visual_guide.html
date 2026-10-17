@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic AI Payments & Commerce - User Flow & Architecture</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(22, 29, 49, 0.85);
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #34d399;
+      --accent-purple: #a855f7;
+      --accent-orange: #fb923c;
+      --shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 30px;
+      min-width: 1400px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 35px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-blue);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 850px;
+      margin: 0 auto;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 35px;
+    }
+
+    .case-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 26px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .case-container.mobile {
+      border-top: 4px solid var(--accent-blue);
+    }
+
+    .case-container.web {
+      border-top: 4px solid var(--accent-purple);
+    }
+
+    .case-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .case-title {
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .case-tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .case-tag.blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); }
+    .case-tag.purple { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
+
+    .step-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .step-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .step-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .step-number {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #3b82f6;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .img-box {
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: #020617;
+      margin-top: auto;
+    }
+
+    .img-box img {
+      width: 100%;
+      height: 240px;
+      object-fit: contain;
+      display: block;
+      background: #020617;
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .features-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .feature-item {
+      font-size: 12px;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .feature-item span {
+      color: var(--accent-green);
+      font-weight: bold;
+    }
+
+    .architecture-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 26px;
+      box-shadow: var(--shadow);
+    }
+
+    .arch-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .arch-title {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .arch-img-box {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: #080c14;
+    }
+
+    .arch-img-box img {
+      width: 100%;
+      display: block;
+    }
+
+    .bottom-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .highlight-cyan { color: #38bdf8; }
+    .highlight-green { color: #34d399; }
+    .highlight-rose { color: #fb7185; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">Ecosystem Architecture & Experience Guide</div>
+    <h1>Agentic Conversational Commerce: Mobile App vs. Web Platform</h1>
+    <p class="subtitle">A visual breakdown of how Google Gemini on Vertex AI and ChromePe eliminate context switching, providing bank-grade one-click transactions across both channels.</p>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- CASE 1: MOBILE APP -->
+    <div class="case-container mobile">
+      <div class="case-header">
+        <div class="case-title">
+          <span>📱</span> Case 1: Android Mobile App (Iqooistant)
+        </div>
+        <span class="case-tag blue">Voice & Native OS Intent</span>
+      </div>
+
+      <div class="step-grid">
+        <div class="step-card">
+          <div class="step-card-header">
+            <div class="step-number">1</div>
+            <div class="step-title">Spoken Query & Tool Selection</div>
+          </div>
+          <div class="img-box">
+            <img src="../screenshots/flow1_mobile_step1_order.png" alt="Mobile Step 1">
+          </div>
+          <div class="step-desc">User says <i>"Buses from Mumbai to Goa"</i>. Gemini selects RedBus tool and renders live bus cards in conversation.</div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-card-header">
+            <div class="step-number">2</div>
+            <div class="step-title">Native Bank Consent (GPay)</div>
+          </div>
+          <div class="img-box">
+            <img src="../screenshots/flow1_mobile_step2_gpay_approval.png" alt="Mobile Step 2">
+          </div>
+          <div class="step-desc">ChromePe launches native Android payment sheet. User enters biometric / UPI PIN on secure banking screen.</div>
+        </div>
+      </div>
+
+      <div class="features-list">
+        <div class="feature-item"><span>✓</span> Hands-free Voice Input</div>
+        <div class="feature-item"><span>✓</span> Android OS Intent Sheet</div>
+        <div class="feature-item"><span>✓</span> Instant WhatsApp Alerts</div>
+      </div>
+    </div>
+
+    <!-- CASE 2: WEB PLATFORM -->
+    <div class="case-container web">
+      <div class="case-header">
+        <div class="case-title">
+          <span>💻</span> Case 2: Web Platform (web-iqooistant)
+        </div>
+        <span class="case-tag purple">In-Chat UI & Dynamic QR</span>
+      </div>
+
+      <div class="step-grid">
+        <div class="step-card">
+          <div class="step-card-header">
+            <div class="step-number">1</div>
+            <div class="step-title">Interactive Carousel & Selection</div>
+          </div>
+          <div class="img-box">
+            <img src="../screenshots/flow2_web_step2_pending_approval.png" alt="Web Step 1">
+          </div>
+          <div class="step-desc">User browses luxury hotel cards from MakeMyTrip in chat. Dynamic payment request is automatically pushed.</div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-card-header">
+            <div class="step-number">2</div>
+            <div class="step-title">Real-Time Verification & Receipt</div>
+          </div>
+          <div class="img-box">
+            <img src="../screenshots/flow2_web_step3_payment_done.png" alt="Web Step 2">
+          </div>
+          <div class="step-desc">Background poller (3s) verifies settlement. Gemini confirms booking & issues receipt with zero page reload.</div>
+        </div>
+      </div>
+
+      <div class="features-list">
+        <div class="feature-item"><span>✓</span> Rich In-Chat Visual Cards</div>
+        <div class="feature-item"><span>✓</span> Cross-Device Dynamic QR</div>
+        <div class="feature-item"><span>✓</span> Real-Time Polling Callback</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ARCHITECTURE DIAGRAM SECTION -->
+  <div class="architecture-section">
+    <div class="arch-header">
+      <div class="arch-title">
+        <span>⚡</span> End-to-End System Architecture (ChromePe + Gemini + Partner Registry)
+      </div>
+      <a href="agentic-payments-dual-case.html" target="_blank" style="color: var(--accent-blue); text-decoration: none; font-size: 13px; font-weight: 600;">Open Interactive SVG Viewer ↗</a>
+    </div>
+
+    <div class="arch-img-box">
+      <img src="agentic-payments-dual-case.visual-check.2048x1320.dark.png" alt="System Architecture Diagram">
+    </div>
+
+    <div class="bottom-cards">
+      <div class="card">
+        <h3 class="highlight-cyan">🛡️ Bank-Grade Security</h3>
+        <p>The AI Agent never touches or sees user MPIN, OTP, or account credentials. All authentication is 100% bank-owned within RBI-regulated boundaries.</p>
+      </div>
+      <div class="card">
+        <h3 class="highlight-green">⚡ Zero-Dropoff Conversion</h3>
+        <p>Eliminates the traditional 3–4 app switching friction. Replaces 18–24 clicks with 2 natural voice prompts, cutting completion time by 83%.</p>
+      </div>
+      <div class="card">
+        <h3 class="highlight-rose">🧩 Modular Partner Registry</h3>
+        <p>Plug-and-play architecture supporting Zomato, MakeMyTrip, RedBus, and Blinkit with dynamic permission toggles controlled by the user.</p>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
