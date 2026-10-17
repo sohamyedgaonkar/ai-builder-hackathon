@@ -1,5 +1,5 @@
 import { getOpenRouterApiKey, getVertexApiKey, LLM_MODEL, VERTEX_AI_MODEL, LLM_PROVIDER } from '../config';
-import { BigQueryTelemetry } from '../services/googleCloudServices';
+import { BigQueryTelemetry, BigQueryWarehouse, AlloyDBClient, BigQueryPredictiveAI } from '../services/googleCloudServices';
 import { browse_menu, add_to_cart, view_cart, place_order } from '../tools/foodTools';
 import { search_hotels, select_hotel, book_trip } from '../tools/travelTools';
 import { search_buses, select_bus, book_bus } from '../tools/busTools';
@@ -324,13 +324,48 @@ export async function chatWithLLM(
         // Do this AFTER executing the tool so payment is initiated in the backend
         const uiResult = await onToolCall(functionName, functionArgs, result);
 
-        // Stream tool execution event to Google BigQuery
+        // Stream tool execution event to Google BigQuery Data Warehouse
+        const orderAmount = result?.total || functionArgs?.total || undefined;
         BigQueryTelemetry.logEvent({
           sessionId: 'sess-tool-' + Date.now(),
           eventType: 'TOOL_INVOCATION',
           toolName: functionName,
-          amount: result?.total || functionArgs?.total || undefined,
+          amount: orderAmount,
         });
+
+        BigQueryWarehouse.streamEvent({
+          sessionId: 'sess-' + Date.now(),
+          eventType: ['place_order', 'book_trip', 'book_bus', 'place_grocery_order'].includes(functionName)
+            ? 'ORDER_PLACED'
+            : 'TOOL_CALL',
+          userId: 'usr-default',
+          app: functionName.includes('hotel') || functionName.includes('trip') ? 'makemytrip' : functionName.includes('bus') ? 'redbus' : functionName.includes('grocery') ? 'blinkit' : 'zomato',
+          amount: orderAmount,
+          metadata: { toolName: functionName, args: functionArgs }
+        });
+
+        // ACID persistence in AlloyDB / Cloud SQL for finalized orders
+        if (['place_order', 'book_trip', 'book_bus', 'place_grocery_order'].includes(functionName) && result?.orderId) {
+          AlloyDBClient.recordOrder({
+            orderId: result.orderId,
+            userId: 'usr-default',
+            app: functionName.includes('hotel') || functionName.includes('trip') ? 'makemytrip' : functionName.includes('bus') ? 'redbus' : functionName.includes('grocery') ? 'blinkit' : 'zomato',
+            items: result.items || [],
+            totalAmount: orderAmount || 0,
+            status: 'PENDING_SETTLEMENT',
+            acidTransactionId: 'tx-alloy-' + Date.now(),
+            createdAt: new Date().toISOString(),
+          });
+
+          // Predict intelligent cross-sells using in-database BigQuery AI
+          const recommendations = BigQueryPredictiveAI.predictCrossSell(
+            functionName.includes('grocery') ? 'blinkit' : 'zomato',
+            (result.items || []).map((i: any) => i.id || i.name)
+          );
+          if (recommendations.length > 0 && result) {
+            result.aiRecommendedCrossSells = recommendations;
+          }
+        }
 
         // Sanitize result so LLM doesn't leak internal links
         if (result && typeof result === 'object') {

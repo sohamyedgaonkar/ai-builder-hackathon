@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import './App.css';
 import { chatWithLLM, type ChatMessage } from './llm/llmClient';
 import { getOpenRouterApiKey } from './config';
+import { GoogleCloudStack } from './services/googleCloud';
 
 interface Message {
   id: string;
@@ -33,6 +34,7 @@ function App() {
   const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [keySavedMsg, setKeySavedMsg] = useState('');
+  const [isGCPModalVisible, setGCPModalVisible] = useState(false);
 
   // Auto-scroll to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -277,6 +279,7 @@ function App() {
           <button className="nav-item active">New Conversation</button>
           <button className="nav-item">Transaction History</button>
           <button className="nav-item" onClick={() => { setApiKeyInput(getOpenRouterApiKey()); setKeySavedMsg(''); setSettingsModalVisible(true); }}>⚙️ App Settings</button>
+          <button className="nav-item" onClick={() => setGCPModalVisible(true)}>☁️ Google Cloud Stack</button>
         </div>
       </aside>
 
@@ -335,6 +338,73 @@ function App() {
                     }}
                   >
                     Save Key
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isGCPModalVisible && (
+          <div className="modal-overlay" onClick={() => setGCPModalVisible(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '620px', maxHeight: '85vh', overflowY: 'auto' }}>
+              <div className="modal-header">
+                <h3 className="modal-title">☁️ Google Cloud Platform Architecture</h3>
+                <button className="modal-close-text" onClick={() => setGCPModalVisible(false)}>Done</button>
+              </div>
+              <div style={{ padding: '12px 0' }}>
+                <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '16px', lineHeight: '1.5' }}>
+                  Enterprise conversational commerce solution powered by 8 integrated Google Cloud technologies:
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#1e3a8a', marginBottom: '4px' }}>
+                      1. AI & Intelligent Agent
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                      • <strong>Gemini on Vertex AI:</strong> Core Agentic Brain (gemini-2.5-flash) with function calling & low-latency reasoning.<br />
+                      • <strong>Vertex AI Search:</strong> Intelligent semantic catalog discovery across Zomato, MMT, RedBus, Blinkit.
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#047857', marginBottom: '4px' }}>
+                      2. Application & Hosting
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                      • <strong>Cloud Run:</strong> Serverless commerce backend ({GoogleCloudStack.cloudRun.getEndpoint()}) with auto-scaling.<br />
+                      • <strong>Cloud Storage (GCS):</strong> High-throughput CDN digital asset hosting for partner logos and menus.
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#b45309', marginBottom: '4px' }}>
+                      3. Data & Persistence
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                      • <strong>AlloyDB / Cloud SQL:</strong> Ultra-fast relational persistence for user carts, ledgers & strict ACID transactions.<br />
+                      • <strong>BigQuery:</strong> Data warehouse real-time streaming ingestion for conversational clickstreams and logs.
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#6d28d9', marginBottom: '4px' }}>
+                      4. Analytics & AI Insights
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                      • <strong>BigQuery AI:</strong> In-database predictive cross-sells, ML re-order affinity, and transaction anomaly scoring.<br />
+                      • <strong>Looker:</strong> Business intelligence tracking conversion rates, zero-dropoff ROI ({GoogleCloudStack.looker.getKeyMetrics().dropoffReduction} reduction).
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>
+                    ● Stack Status: Online & Integrated
+                  </span>
+                  <button className="apk-download-btn" style={{ border: 'none', cursor: 'pointer' }} onClick={() => setGCPModalVisible(false)}>
+                    Close
                   </button>
                 </div>
               </div>

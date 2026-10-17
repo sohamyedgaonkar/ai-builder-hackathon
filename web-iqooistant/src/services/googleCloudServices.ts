@@ -80,3 +80,6 @@ export const vertexAIConfig = {
     maxOutputTokens: 2048,
   },
 };
+
+// Re-export full enterprise suite
+export * from './googleCloud';
