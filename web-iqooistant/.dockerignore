@@ -8,3 +8,5 @@ dist
 *.log
 .env.local
 .DS_Store
+public/*.apk
+*.apk

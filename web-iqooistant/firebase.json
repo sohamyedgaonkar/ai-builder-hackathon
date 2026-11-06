@@ -1,0 +1,24 @@
+{
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "PayPal-v1.0.apk"
+    ],
+    "redirects": [
+      {
+        "source": "/PayPal-v1.0.apk",
+        "destination": "https://raw.githubusercontent.com/sohamyedgaonkar/ai-builder-hackathon/main/apks/PayPal-v1.0.apk",
+        "type": 302
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
