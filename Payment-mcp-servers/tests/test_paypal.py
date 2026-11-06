@@ -52,3 +52,4 @@ async def test_paypal_create_order():
         assert order["status"] == "CREATED"
         assert order["amount_usd"] == "10.00"
         assert "checkoutnow" in order["approval_url"]
+
