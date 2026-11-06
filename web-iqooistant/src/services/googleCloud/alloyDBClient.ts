@@ -31,7 +31,7 @@ export interface TransactionLedgerEntry {
   orderId: string;
   upiReference?: string;
   amount: number;
-  paymentGateway: 'ChromePe' | 'GooglePay';
+  paymentGateway: 'PayPal' | 'ChromePe' | 'GooglePay';
   status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'TIMEOUT';
   settledAt?: string;
 }
@@ -72,7 +72,7 @@ export class AlloyDBClient {
       transactionId: `TXN-${Date.now()}`,
       orderId: order.orderId,
       amount: order.totalAmount,
-      paymentGateway: 'ChromePe',
+      paymentGateway: 'PayPal',
       status: 'PENDING',
     };
 

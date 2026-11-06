@@ -84,9 +84,7 @@ export function view_cart() {
   return { items: snapshot, total: get_cart_total() };
 }
 
-// PhonePe logic
-const PHONEPE_BASE_URL = 'https://chromepe-relay.chromepe-relay.workers.dev';
-const VPA = 'prasad@okicici'; // Mock VPA to use
+import { PayPalService } from '../services/paypalService';
 
 export async function place_order() {
   if (Object.keys(cart).length === 0) {
@@ -97,36 +95,30 @@ export async function place_order() {
   const total = get_cart_total();
   const order_id = `ORD-${Date.now()}`;
 
-  const payload = {
-    amount: total,
-    vpa: VPA,
-    merchantName: 'Antigravity Orders',
-    description: `Payment for ${order_id}`,
-  };
-
   try {
-    const response = await fetch(`${PHONEPE_BASE_URL}/payment/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const payPalOrder = await PayPalService.createOrder({
+      amountInr: total,
+      description: `Payment for food order ${order_id} (${items.length} items)`,
+      orderReferenceId: order_id,
     });
 
-    const data = await response.json();
+    // Clear cart on successful initiation
+    for (const key in cart) delete cart[key];
 
-    if (response.ok) {
-      // Clear cart on successful initiation
-      for (const key in cart) delete cart[key];
-      return {
-        success: true,
-        order_id,
-        total,
-        status: 'payment_initiated',
-        deepLink: data.deepLink,
-        statusUrl: data.statusUrl,
-      };
-    } else {
-      return { success: false, error: `Payment failed (HTTP ${response.status}): ${JSON.stringify(data)}` };
-    }
+    return {
+      success: true,
+      order_id,
+      platform: 'PayPal Sandbox',
+      orderId: payPalOrder.id,
+      approvalUrl: payPalOrder.approvalUrl,
+      amountInr: payPalOrder.amountInr,
+      amountUsd: payPalOrder.amountUsd,
+      status: payPalOrder.status,
+      total,
+      statusUrl: payPalOrder.statusUrl,
+      deepLink: payPalOrder.approvalUrl,
+      message: `PayPal Sandbox order created (${payPalOrder.id}). Authorize and complete payment via PayPal.`
+    };
   } catch (e: any) {
     return { success: false, error: e.message };
   }

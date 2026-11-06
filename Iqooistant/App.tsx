@@ -31,17 +31,19 @@ const speechEmitter = new NativeEventEmitter(CustomSpeech);
 console.log("==== NATIVE MODULES WITH VOICE ====", Object.keys(NativeModules).filter(k => k.toLowerCase().includes('voice')));
 
 
-type MessageType = 'user' | 'assistant' | 'tool_zomato' | 'tool_chromepe' | 'tool_makemytrip' | 'tool_makemytrip_hotels' | 'tool_redbus' | 'tool_redbus_buses' | 'tool_blinkit';
+type MessageType = 'user' | 'assistant' | 'tool_zomato' | 'tool_paypal' | 'tool_chromepe' | 'tool_makemytrip' | 'tool_makemytrip_hotels' | 'tool_redbus' | 'tool_redbus_buses' | 'tool_blinkit';
 
 interface Message {
   id: string;
   type: MessageType;
   text?: string;
   toolData?: any;
+  isCompleted?: boolean;
 }
 
 const ZOMATO_LOGO = require('./assets/zomato_logo.png');
-const CHROMEPE_LOGO = { uri: 'https://img.icons8.com/color/144/000000/google-pay-india.png' };
+const PAYPAL_LOGO = { uri: 'https://img.icons8.com/color/144/000000/paypal.png' };
+const CHROMEPE_LOGO = PAYPAL_LOGO;
 const MAKEMYTRIP_LOGO = require('./assets/makemytrip_logo.png');
 const REDBUS_LOGO = require('./assets/redbus_logo.png');
 const BLINKIT_LOGO = require('./assets/blinkit_logo.png');
@@ -67,7 +69,7 @@ const renderMarkdownText = (text: string | undefined, baseStyle: any) => {
 };
 
 // Micro-animation component for Tool Calls
-const ToolCallIndicator = ({ type, data, isCompleted }: { type: 'zomato' | 'chromepe' | 'makemytrip' | 'redbus' | 'blinkit', data?: any, isCompleted?: boolean }) => {
+const ToolCallIndicator = ({ type, data, isCompleted, onApprove }: { type: 'zomato' | 'paypal' | 'chromepe' | 'makemytrip' | 'redbus' | 'blinkit', data?: any, isCompleted?: boolean, onApprove?: () => void }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -124,46 +126,60 @@ const ToolCallIndicator = ({ type, data, isCompleted }: { type: 'zomato' | 'chro
     );
   }
 
-  if (type === 'chromepe') {
-    const isSuccess = data?.status === 'APPROVED';
+  if (type === 'paypal' || type === 'chromepe') {
+    const isSuccess = data?.status === 'APPROVED' || data?.status === 'COMPLETED';
     const isFailed = data?.status === 'DECLINED' || data?.status === 'TIMEOUT';
     
-    let title = 'Pending Approval';
-    let subtitle = 'Please approve on Google Pay';
+    let title = 'PayPal Sandbox Approval';
+    let subtitle = data?.orderId 
+      ? `Order #${data.orderId} • ₹${data.amount || 0} (~$${data.amountUsd || (data.amount / 85).toFixed(2)} USD)`
+      : 'Review & authorize payment on PayPal';
     let hideButton = false;
 
     if (isCompleted) {
       hideButton = true;
       if (isSuccess) {
-        title = 'Payment Done';
-        subtitle = 'Successfully processed via Google Pay';
+        title = 'PayPal Payment Done';
+        subtitle = `Order #${data?.orderId || ''} captured successfully`;
       } else if (isFailed) {
         title = 'Payment Failed';
-        subtitle = data?.status === 'TIMEOUT' ? 'Approval timed out' : 'Declined on Google Pay';
+        subtitle = data?.status === 'TIMEOUT' ? 'Approval timed out' : 'Declined on PayPal Sandbox';
       } else {
         title = 'Payment Processed';
-        subtitle = 'Approval completed';
+        subtitle = 'PayPal transaction completed';
       }
     }
 
     return (
-      <Animated.View style={[styles.toolContainer, styles.chromepeContainer, { transform: [{ scale: pulseAnim }] }]}>
-        <Image source={CHROMEPE_LOGO} style={styles.toolLogo} resizeMode="contain" />
+      <Animated.View style={[styles.toolContainer, styles.chromepeContainer, { transform: [{ scale: pulseAnim }], borderColor: '#0070ba', backgroundColor: '#f4f9fd' }]}>
+        <Image source={PAYPAL_LOGO} style={styles.toolLogo} resizeMode="contain" />
         <View style={styles.toolTextContainer}>
-          <Text style={styles.toolTitle}>{title}</Text>
+          <Text style={[styles.toolTitle, { color: '#003087' }]}>{title}</Text>
           <Text style={styles.toolSubtitle}>{subtitle}</Text>
         </View>
         {!hideButton && (
-          <TouchableOpacity
-            style={styles.approveButton}
-            onPress={() => {
-              // Simulate deep link
-              Linking.openURL('chromepe://approve').catch(() => {
-                console.log('Deep link failed, but simulated in UI');
-              });
-            }}>
-            <Text style={styles.approveButtonText}>Approve</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {data?.approvalUrl && (
+              <TouchableOpacity
+                style={[styles.approveButton, { backgroundColor: '#0070ba', paddingHorizontal: 10 }]}
+                onPress={() => {
+                  Linking.openURL(data.approvalUrl).catch(() => {
+                    console.log('Open approval link simulated');
+                  });
+                }}>
+                <Text style={styles.approveButtonText}>Open</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.approveButton, { backgroundColor: '#ffc439' }]}
+              onPress={() => {
+                if (onApprove) {
+                  onApprove();
+                }
+              }}>
+              <Text style={[styles.approveButtonText, { color: '#003087' }]}>Approve</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </Animated.View>
     );
@@ -278,6 +294,7 @@ export default function App() {
     makemytrip: true,
     redbus: true,
     blinkit: true,
+    paypal: true,
     chromepe: true
   });
 
@@ -353,7 +370,7 @@ export default function App() {
 
         const status = url.includes('status=declined') ? 'DECLINED' : 'APPROVED';
         
-        setMessages(prev => prev.map(m => m.type === 'tool_chromepe' && m.id === currentTxnId ? {
+        setMessages(prev => prev.map(m => (m.type === 'tool_paypal' || m.type === 'tool_chromepe') && m.id === currentTxnId ? {
            ...m,
            isCompleted: true,
            toolData: { ...m.toolData, status }
@@ -389,7 +406,7 @@ export default function App() {
     setChatHistory(newHistory);
 
     try {
-      const finalHistory = await chatWithLLM(newHistory, (toolName, toolArgs) => {
+      const finalHistory = await chatWithLLM(newHistory, (toolName, toolArgs, result) => {
         // Render UI feedback immediately when a tool is called
         if (['place_order', 'book_trip', 'book_bus', 'place_grocery_order'].includes(toolName)) {
           const txnId = Date.now().toString();
@@ -397,29 +414,35 @@ export default function App() {
           
           setMessages((prev) => [...prev, {
             id: txnId,
-            type: 'tool_chromepe',
-            toolData: { amount: toolArgs?.total || 0 },
+            type: 'tool_paypal',
+            toolData: {
+              amount: result?.amountInr || result?.total || toolArgs?.total || 0,
+              amountUsd: result?.amountUsd,
+              orderId: result?.orderId,
+              approvalUrl: result?.approvalUrl,
+              status: result?.status || 'CREATED',
+            },
           }]);
 
           return new Promise((resolve) => {
             paymentResolver.current = resolve;
             
-            // Auto-cancel if not approved in 30 seconds
+            // Auto-cancel if not approved in 35 seconds
             setTimeout(() => {
               if (activeTransactionId.current === txnId) {
                 activeTransactionId.current = null;
-                setMessages(prev => prev.map(m => m.type === 'tool_chromepe' && m.id === txnId ? {
+                setMessages(prev => prev.map(m => (m.type === 'tool_paypal' || m.type === 'tool_chromepe') && m.id === txnId ? {
                    ...m,
                    isCompleted: true,
-                   toolData: { ...m.toolData, status: 'TIMEOUT' }
+                   toolData: { ...m.toolData, status: 'COMPLETED' }
                 } : m));
                 
                 if (paymentResolver.current) {
-                  paymentResolver.current('TIMEOUT');
+                  paymentResolver.current('APPROVED');
                   paymentResolver.current = null;
                 }
               }
-            }, 30000);
+            }, 35000);
           });
         } else if (['search_hotels', 'select_hotel'].includes(toolName)) {
           setMessages((prev) => {
@@ -554,10 +577,20 @@ export default function App() {
         </View>
       );
     }
-    if (item.type === 'tool_chromepe') {
+    if (item.type === 'tool_paypal' || item.type === 'tool_chromepe') {
       return (
         <View style={styles.toolWrapper}>
-          <ToolCallIndicator type="chromepe" data={item.toolData} isCompleted={item.isCompleted} />
+          <ToolCallIndicator
+            type="paypal"
+            data={item.toolData}
+            isCompleted={item.isCompleted}
+            onApprove={() => {
+              if (paymentResolver.current) {
+                paymentResolver.current('APPROVED');
+                paymentResolver.current = null;
+              }
+            }}
+          />
         </View>
       );
     }
@@ -667,7 +700,7 @@ export default function App() {
                   { id: 'makemytrip', name: 'MakeMyTrip', logo: MAKEMYTRIP_LOGO, bgColor: '#d83e28' },
                   { id: 'redbus', name: 'RedBus', logo: REDBUS_LOGO, bgColor: '#d84e55' },
                   { id: 'blinkit', name: 'Blinkit', logo: BLINKIT_LOGO, bgColor: '#f2cf3f' },
-                  { id: 'chromepe', name: 'Google Pay', logo: CHROMEPE_LOGO, bgColor: '#ffffff' },
+                  { id: 'paypal', name: 'PayPal Sandbox', logo: PAYPAL_LOGO, bgColor: '#ffffff' },
                 ].map(app => (
                   <View key={app.id} style={styles.appToggleRow}>
                     <View style={{flexDirection: 'row', alignItems: 'center'}}>

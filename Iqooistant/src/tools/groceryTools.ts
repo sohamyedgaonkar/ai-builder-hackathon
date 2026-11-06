@@ -37,48 +37,42 @@ export function add_grocery_to_cart(item_id: string, quantity: number = 1) {
   };
 }
 
-// PhonePe logic
-const PHONEPE_BASE_URL = 'https://chromepe-relay.chromepe-relay.workers.dev';
-const VPA = 'prasad@okicici'; // Mock VPA to use
+import { PayPalService } from '../services/paypalService';
 
 export async function place_grocery_order() {
   if (grocery_cart.length === 0) {
     return { success: false, error: 'Grocery cart is empty.' };
   }
 
-  const total = grocery_cart.reduce((sum, i) => sum + (i.item.price * i.quantity), 0);
+  const items = [...grocery_cart];
+  const total = items.reduce((sum, i) => sum + (i.item.price * i.quantity), 0);
   const order_id = `BLINK-${Date.now()}`;
 
-  const payload = {
-    amount: total,
-    vpa: VPA,
-    merchantName: 'Blinkit',
-    description: `Grocery Delivery ${order_id}`,
-  };
-
   try {
-    const response = await fetch(`${PHONEPE_BASE_URL}/payment/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const payPalOrder = await PayPalService.createOrder({
+      amountInr: total,
+      description: `Blinkit Grocery Delivery ${order_id} (${items.length} items)`,
+      orderReferenceId: order_id,
     });
 
-    const data = await response.json();
+    // Clear cart on success
+    grocery_cart = [];
 
-    if (response.ok) {
-      grocery_cart = []; // Clear cart on success
-      return {
-        success: true,
-        order_id,
-        total,
-        status: 'payment_initiated',
-        deepLink: data.deepLink,
-        statusUrl: data.statusUrl,
-        estimated_delivery: '10 mins',
-      };
-    } else {
-      return { success: false, error: `Payment failed (HTTP ${response.status}): ${JSON.stringify(data)}` };
-    }
+    return {
+      success: true,
+      order_id,
+      platform: 'PayPal Sandbox',
+      orderId: payPalOrder.id,
+      approvalUrl: payPalOrder.approvalUrl,
+      amountInr: payPalOrder.amountInr,
+      amountUsd: payPalOrder.amountUsd,
+      status: payPalOrder.status,
+      total,
+      statusUrl: payPalOrder.statusUrl,
+      deepLink: payPalOrder.approvalUrl,
+      estimated_delivery: '10 mins',
+      message: `PayPal Sandbox order created (${payPalOrder.id}). Authorize and complete payment via PayPal.`
+    };
   } catch (e: any) {
     return { success: false, error: e.message };
   }

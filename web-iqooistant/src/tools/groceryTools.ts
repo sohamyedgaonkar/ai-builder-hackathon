@@ -37,49 +37,44 @@ export function add_grocery_to_cart(item_id: string, quantity: number = 1) {
   };
 }
 
-// PhonePe logic
-const PHONEPE_BASE_URL = 'https://chromepe-relay.chromepe-relay.workers.dev';
-const VPA = 'prasad@okicici'; // Mock VPA to use
+import { PayPalService } from '../services/paypalService';
 
 export async function place_grocery_order() {
   if (grocery_cart.length === 0) {
     return { success: false, error: 'Grocery cart is empty.' };
   }
 
+  const items = grocery_cart.map(i => ({ id: i.item.id, name: i.item.name, quantity: i.quantity, price: i.item.price }));
   const total = grocery_cart.reduce((sum, i) => sum + (i.item.price * i.quantity), 0);
   const order_id = `BLINK-${Date.now()}`;
 
-  const payload = {
-    amount: total,
-    vpa: VPA,
-    merchantName: 'Blinkit',
-    description: `Grocery Delivery ${order_id}`,
-  };
-
   try {
-    const response = await fetch(`${PHONEPE_BASE_URL}/payment/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const paypalOrder = await PayPalService.createOrder({
+      amountInr: total,
+      description: `Blinkit Quick Delivery ${order_id} (${items.map(i => `${i.quantity}x ${i.name}`).join(', ')})`,
+      orderReferenceId: order_id,
     });
 
-    const data = await response.json();
+    // Clear cart on success
+    grocery_cart = [];
 
-    if (response.ok) {
-      grocery_cart = []; // Clear cart on success
-      return {
-        success: true,
-        order_id,
-        total,
-        status: 'payment_initiated',
-        deepLink: data.deepLink,
-        statusUrl: data.statusUrl,
-        estimated_delivery: '10 mins',
-      };
-    } else {
-      return { success: false, error: `Payment failed (HTTP ${response.status}): ${JSON.stringify(data)}` };
-    }
+    return {
+      success: true,
+      order_id,
+      orderId: order_id,
+      total,
+      amount_usd: paypalOrder.amountUsd,
+      paypalOrderId: paypalOrder.id,
+      status: 'payment_initiated',
+      deepLink: paypalOrder.approvalUrl,
+      approvalUrl: paypalOrder.approvalUrl,
+      statusUrl: paypalOrder.statusUrl,
+      paymentMethod: 'PayPal',
+      items,
+      estimated_delivery: '10 mins',
+    };
   } catch (e: any) {
+    console.error('[PayPal Grocery Order Error]', e);
     return { success: false, error: e.message };
   }
 }

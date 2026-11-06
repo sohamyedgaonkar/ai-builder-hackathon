@@ -15,10 +15,13 @@ load_dotenv()
 
 phonepe_token = os.getenv("PHONEPE_TOKEN", "")
 if not phonepe_token:
-    raise RuntimeError(
-        "PHONEPE_TOKEN environment variable is required. "
-        "Set it in your .env file."
-    )
+    if os.getenv("PAYPAL_CLIENT_ID"):
+        phonepe_token = "demo@paypal"
+    else:
+        raise RuntimeError(
+            "PHONEPE_TOKEN or PAYPAL_CLIENT_ID environment variable is required. "
+            "Set it in your .env file."
+        )
 
 mcp = FastMCP("travel-booking")
 trip = TripManager()

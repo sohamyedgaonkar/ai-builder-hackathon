@@ -32,9 +32,7 @@ export function select_bus(operator_name: string, seats: number = 1) {
   };
 }
 
-// PhonePe logic
-const PHONEPE_BASE_URL = 'https://chromepe-relay.chromepe-relay.workers.dev';
-const VPA = 'prasad@okicici'; // Mock VPA to use
+import { PayPalService } from '../services/paypalService';
 
 export async function book_bus() {
   if (!bus_cart) {
@@ -43,38 +41,36 @@ export async function book_bus() {
 
   const total = bus_cart.totalPrice;
   const booking_id = `BUS-${Date.now()}`;
-
-  const payload = {
-    amount: total,
-    vpa: VPA,
-    merchantName: 'RedBus',
-    description: `Bus Booking ${booking_id}`,
-  };
+  const busInfo = bus_cart.bus;
 
   try {
-    const response = await fetch(`${PHONEPE_BASE_URL}/payment/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const paypalOrder = await PayPalService.createOrder({
+      amountInr: total,
+      description: `RedBus ${busInfo.operator} (${busInfo.route}) - ${bus_cart.seats} Seat(s)`,
+      orderReferenceId: booking_id,
     });
 
-    const data = await response.json();
+    const items = [{ id: busInfo.operator, name: `${busInfo.operator} (${busInfo.route})`, quantity: bus_cart.seats, price: busInfo.price }];
 
-    if (response.ok) {
-      // Clear bus cart on successful initiation
-      bus_cart = null;
-      return {
-        success: true,
-        booking_id,
-        total,
-        status: 'payment_initiated',
-        deepLink: data.deepLink,
-        statusUrl: data.statusUrl,
-      };
-    } else {
-      return { success: false, error: `Payment failed (HTTP ${response.status}): ${JSON.stringify(data)}` };
-    }
+    // Clear bus cart on successful initiation
+    bus_cart = null;
+
+    return {
+      success: true,
+      booking_id,
+      orderId: booking_id,
+      total,
+      amount_usd: paypalOrder.amountUsd,
+      paypalOrderId: paypalOrder.id,
+      status: 'payment_initiated',
+      deepLink: paypalOrder.approvalUrl,
+      approvalUrl: paypalOrder.approvalUrl,
+      statusUrl: paypalOrder.statusUrl,
+      paymentMethod: 'PayPal',
+      items,
+    };
   } catch (e: any) {
+    console.error('[PayPal Bus Order Error]', e);
     return { success: false, error: e.message };
   }
 }

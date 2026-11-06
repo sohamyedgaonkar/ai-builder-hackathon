@@ -32,48 +32,41 @@ export function select_bus(operator_name: string, seats: number = 1) {
   };
 }
 
-// PhonePe logic
-const PHONEPE_BASE_URL = 'https://chromepe-relay.chromepe-relay.workers.dev';
-const VPA = 'prasad@okicici'; // Mock VPA to use
+import { PayPalService } from '../services/paypalService';
 
 export async function book_bus() {
   if (!bus_cart) {
     return { success: false, error: 'No bus selected. Search and select a bus before booking.' };
   }
 
-  const total = bus_cart.totalPrice;
+  const selectedBus = bus_cart;
+  const total = selectedBus.totalPrice;
   const booking_id = `BUS-${Date.now()}`;
 
-  const payload = {
-    amount: total,
-    vpa: VPA,
-    merchantName: 'RedBus',
-    description: `Bus Booking ${booking_id}`,
-  };
-
   try {
-    const response = await fetch(`${PHONEPE_BASE_URL}/payment/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const payPalOrder = await PayPalService.createOrder({
+      amountInr: total,
+      description: `Bus Booking ${booking_id}: ${selectedBus.operator} (${selectedBus.route})`,
+      orderReferenceId: booking_id,
     });
 
-    const data = await response.json();
+    // Clear bus cart on successful initiation
+    bus_cart = null;
 
-    if (response.ok) {
-      // Clear bus cart on successful initiation
-      bus_cart = null;
-      return {
-        success: true,
-        booking_id,
-        total,
-        status: 'payment_initiated',
-        deepLink: data.deepLink,
-        statusUrl: data.statusUrl,
-      };
-    } else {
-      return { success: false, error: `Payment failed (HTTP ${response.status}): ${JSON.stringify(data)}` };
-    }
+    return {
+      success: true,
+      booking_id,
+      platform: 'PayPal Sandbox',
+      orderId: payPalOrder.id,
+      approvalUrl: payPalOrder.approvalUrl,
+      amountInr: payPalOrder.amountInr,
+      amountUsd: payPalOrder.amountUsd,
+      status: payPalOrder.status,
+      total,
+      statusUrl: payPalOrder.statusUrl,
+      deepLink: payPalOrder.approvalUrl,
+      message: `PayPal Sandbox order created (${payPalOrder.id}). Authorize and complete payment via PayPal.`
+    };
   } catch (e: any) {
     return { success: false, error: e.message };
   }

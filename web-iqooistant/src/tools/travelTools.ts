@@ -40,9 +40,7 @@ export function select_hotel(hotel_id: string, nights: number = 1) {
   };
 }
 
-// PhonePe logic
-const PHONEPE_BASE_URL = 'https://chromepe-relay.chromepe-relay.workers.dev';
-const VPA = 'prasad@okicici'; // Mock VPA to use
+import { PayPalService } from '../services/paypalService';
 
 export async function book_trip() {
   if (!trip_cart) {
@@ -51,38 +49,36 @@ export async function book_trip() {
 
   const total = trip_cart.totalPrice;
   const booking_id = `TRIP-${Date.now()}`;
-
-  const payload = {
-    amount: total,
-    vpa: VPA,
-    merchantName: 'MakeMyTrip Hotels',
-    description: `Hotel Booking ${booking_id}`,
-  };
+  const hotelInfo = trip_cart.hotel;
 
   try {
-    const response = await fetch(`${PHONEPE_BASE_URL}/payment/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const paypalOrder = await PayPalService.createOrder({
+      amountInr: total,
+      description: `MakeMyTrip ${hotelInfo.name} (${hotelInfo.city}) - ${trip_cart.nights} Night(s)`,
+      orderReferenceId: booking_id,
     });
 
-    const data = await response.json();
+    const items = [{ id: hotelInfo.id, name: `${hotelInfo.name} (${hotelInfo.city})`, quantity: trip_cart.nights, price: hotelInfo.price }];
 
-    if (response.ok) {
-      // Clear trip cart on successful initiation
-      trip_cart = null;
-      return {
-        success: true,
-        booking_id,
-        total,
-        status: 'payment_initiated',
-        deepLink: data.deepLink,
-        statusUrl: data.statusUrl,
-      };
-    } else {
-      return { success: false, error: `Payment failed (HTTP ${response.status}): ${JSON.stringify(data)}` };
-    }
+    // Clear trip cart on successful initiation
+    trip_cart = null;
+
+    return {
+      success: true,
+      booking_id,
+      orderId: booking_id,
+      total,
+      amount_usd: paypalOrder.amountUsd,
+      paypalOrderId: paypalOrder.id,
+      status: 'payment_initiated',
+      deepLink: paypalOrder.approvalUrl,
+      approvalUrl: paypalOrder.approvalUrl,
+      statusUrl: paypalOrder.statusUrl,
+      paymentMethod: 'PayPal',
+      items,
+    };
   } catch (e: any) {
+    console.error('[PayPal Hotel Order Error]', e);
     return { success: false, error: e.message };
   }
 }

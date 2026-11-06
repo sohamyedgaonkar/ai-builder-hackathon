@@ -84,50 +84,43 @@ export function view_cart() {
   return { items: snapshot, total: get_cart_total() };
 }
 
-// PhonePe logic
-const PHONEPE_BASE_URL = 'https://chromepe-relay.chromepe-relay.workers.dev';
-const VPA = 'prasad@okicici'; // Mock VPA to use
+import { PayPalService } from '../services/paypalService';
 
 export async function place_order() {
   if (Object.keys(cart).length === 0) {
     return { success: false, error: 'Cart is empty. Add items before placing an order.' };
   }
 
-  get_cart_snapshot();
+  const items = get_cart_snapshot();
   const total = get_cart_total();
   const order_id = `ORD-${Date.now()}`;
 
-  const payload = {
-    amount: total,
-    vpa: VPA,
-    merchantName: 'Antigravity Orders',
-    description: `Payment for ${order_id}`,
-  };
-
   try {
-    const response = await fetch(`${PHONEPE_BASE_URL}/payment/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const paypalOrder = await PayPalService.createOrder({
+      amountInr: total,
+      description: `Zomato Food Order ${order_id} (${items.map(i => `${i.quantity}x ${i.name}`).join(', ')})`,
+      orderReferenceId: order_id,
     });
 
-    const data = await response.json();
+    // Clear cart on successful initiation
+    for (const key in cart) delete cart[key];
 
-    if (response.ok) {
-      // Clear cart on successful initiation
-      for (const key in cart) delete cart[key];
-      return {
-        success: true,
-        order_id,
-        total,
-        status: 'payment_initiated',
-        deepLink: data.deepLink,
-        statusUrl: data.statusUrl,
-      };
-    } else {
-      return { success: false, error: `Payment failed (HTTP ${response.status}): ${JSON.stringify(data)}` };
-    }
+    return {
+      success: true,
+      order_id,
+      orderId: order_id,
+      total,
+      amount_usd: paypalOrder.amountUsd,
+      paypalOrderId: paypalOrder.id,
+      status: 'payment_initiated',
+      deepLink: paypalOrder.approvalUrl,
+      approvalUrl: paypalOrder.approvalUrl,
+      statusUrl: paypalOrder.statusUrl,
+      paymentMethod: 'PayPal',
+      items,
+    };
   } catch (e: any) {
+    console.error('[PayPal Order Error]', e);
     return { success: false, error: e.message };
   }
 }

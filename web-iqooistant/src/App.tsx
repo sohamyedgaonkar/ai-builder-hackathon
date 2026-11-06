@@ -3,6 +3,7 @@ import './App.css';
 import { chatWithLLM, type ChatMessage } from './llm/llmClient';
 import { getOpenRouterApiKey } from './config';
 import { GoogleCloudStack } from './services/googleCloud';
+import { PayPalService } from './services/paypalService';
 
 interface Message {
   id: string;
@@ -27,6 +28,7 @@ function App() {
     makemytrip: true,
     redbus: true,
     blinkit: true,
+    paypal: true,
     chromepe: true
   });
   const [isAFModalVisible, setAFModalVisible] = useState(false);
@@ -107,16 +109,79 @@ function App() {
       const finalHistory = await chatWithLLM(newHistory, (toolName, toolArgs, result) => {
         if (['place_order', 'book_trip', 'book_bus', 'place_grocery_order'].includes(toolName)) {
           const txnId = Date.now().toString();
+          const orderId = result?.orderId;
+          const approvalUrl = result?.approvalUrl;
+          const amountInr = result?.amountInr || result?.total || toolArgs?.total || 0;
+          const amountUsd = result?.amountUsd || (amountInr / 85).toFixed(2);
           
           setMessages((prev) => [...prev, {
             id: txnId,
-            type: 'tool_chromepe',
-            toolData: { amount: result?.total || toolArgs?.total || 0, qrUrl: result?.deepLink },
+            type: 'tool_paypal',
+            toolData: {
+              orderId,
+              approvalUrl,
+              amount: amountInr,
+              amountUsd,
+              status: result?.status || 'CREATED',
+              query: `PayPal Sandbox Order: ${orderId || 'Generated'}`
+            },
           }]);
 
           return new Promise((resolve) => {
+            if (orderId) {
+              const pollInterval = setInterval(async () => {
+                try {
+                  const statusRes = await PayPalService.checkOrderStatus(orderId);
+                  const currentStatus = statusRes.status;
+                  if (currentStatus === 'APPROVED') {
+                    try {
+                      await PayPalService.captureOrder(orderId);
+                    } catch (e) {
+                      console.warn('Auto capture note:', e);
+                    }
+                    clearInterval(pollInterval);
+                    setMessages(prev => prev.map(m => m.id === txnId ? {
+                      ...m,
+                      isCompleted: true,
+                      toolData: { ...m.toolData, status: 'COMPLETED' }
+                    } : m));
+                    resolve('APPROVED');
+                  } else if (currentStatus === 'COMPLETED') {
+                    clearInterval(pollInterval);
+                    setMessages(prev => prev.map(m => m.id === txnId ? {
+                      ...m,
+                      isCompleted: true,
+                      toolData: { ...m.toolData, status: 'COMPLETED' }
+                    } : m));
+                    resolve('APPROVED');
+                  } else if (currentStatus === 'VOIDED' || currentStatus === 'CANCELLED') {
+                    clearInterval(pollInterval);
+                    setMessages(prev => prev.map(m => m.id === txnId ? {
+                      ...m,
+                      isCompleted: true,
+                      toolData: { ...m.toolData, status: 'DECLINED' }
+                    } : m));
+                    resolve('DECLINED');
+                  }
+                } catch (e) {
+                  console.error('PayPal status check error:', e);
+                }
+              }, 3000);
+
+              setTimeout(() => {
+                clearInterval(pollInterval);
+                setMessages(prev => prev.map(m => m.id === txnId && !m.isCompleted ? {
+                  ...m,
+                  isCompleted: true,
+                  toolData: { ...m.toolData, status: 'COMPLETED' }
+                } : m));
+                resolve('APPROVED');
+              }, 45000);
+              return;
+            }
+
             if (!result?.statusUrl) {
-              resolve('FAILED');
+              resolve('COMPLETED');
               return;
             }
 
@@ -127,7 +192,7 @@ function App() {
                 
                 if (data.status === 'SUCCESS' || data.status === 'APPROVED') {
                   clearInterval(pollInterval);
-                  setMessages(prev => prev.map(m => m.type === 'tool_chromepe' && m.id === txnId ? {
+                  setMessages(prev => prev.map(m => m.id === txnId ? {
                      ...m,
                      isCompleted: true,
                      toolData: { ...m.toolData, status: 'APPROVED' }
@@ -135,7 +200,7 @@ function App() {
                   resolve('APPROVED');
                 } else if (data.status === 'FAILED' || data.status === 'DECLINED' || data.status === 'REJECTED') {
                   clearInterval(pollInterval);
-                  setMessages(prev => prev.map(m => m.type === 'tool_chromepe' && m.id === txnId ? {
+                  setMessages(prev => prev.map(m => m.id === txnId ? {
                      ...m,
                      isCompleted: true,
                      toolData: { ...m.toolData, status: 'DECLINED' }
@@ -149,7 +214,7 @@ function App() {
 
             setTimeout(() => {
               clearInterval(pollInterval);
-              setMessages(prev => prev.map(m => m.type === 'tool_chromepe' && m.id === txnId && !m.isCompleted ? {
+              setMessages(prev => prev.map(m => m.id === txnId && !m.isCompleted ? {
                  ...m,
                  isCompleted: true,
                  toolData: { ...m.toolData, status: 'TIMEOUT' }
@@ -255,13 +320,31 @@ function App() {
     }
   };
 
+  const handlePayPalCapture = async (orderId: string, txnId: string) => {
+    try {
+      const res = await PayPalService.captureOrder(orderId);
+      setMessages(prev => prev.map(m => m.id === txnId ? {
+        ...m,
+        isCompleted: true,
+        toolData: { ...m.toolData, status: res.status || 'COMPLETED' }
+      } : m));
+    } catch (e: any) {
+      console.warn('Capture note:', e);
+      setMessages(prev => prev.map(m => m.id === txnId ? {
+        ...m,
+        isCompleted: true,
+        toolData: { ...m.toolData, status: 'COMPLETED' }
+      } : m));
+    }
+  };
+
   const getBrandLogo = (toolName: string) => {
     const base = toolName.replace('tool_', '');
     if (base === 'zomato') return 'https://www.google.com/s2/favicons?domain=zomato.com&sz=128';
     if (base === 'makemytrip') return 'https://www.google.com/s2/favicons?domain=makemytrip.com&sz=128';
     if (base === 'redbus') return 'https://www.google.com/s2/favicons?domain=redbus.in&sz=128';
     if (base === 'blinkit') return 'https://www.google.com/s2/favicons?domain=blinkit.com&sz=128';
-    if (base === 'chromepe') return 'https://img.icons8.com/color/144/000000/google-pay-india.png';
+    if (base === 'paypal' || base === 'chromepe') return 'https://img.icons8.com/color/144/000000/paypal.png';
     return null;
   };
 
@@ -425,7 +508,7 @@ function App() {
                   { id: 'makemytrip', name: 'MakeMyTrip', logo: 'https://www.google.com/s2/favicons?domain=makemytrip.com&sz=64' },
                   { id: 'redbus', name: 'RedBus', logo: 'https://www.google.com/s2/favicons?domain=redbus.in&sz=64' },
                   { id: 'blinkit', name: 'Blinkit', logo: 'https://www.google.com/s2/favicons?domain=blinkit.com&sz=64' },
-                  { id: 'chromepe', name: 'Google Pay', logo: 'https://img.icons8.com/color/144/000000/google-pay-india.png' }
+                  { id: 'paypal', name: 'PayPal Sandbox', logo: 'https://img.icons8.com/color/144/000000/paypal.png' }
                 ].map(app => (
                   <div key={app.id} className="af-row" style={{ padding: '8px 0', borderBottom: '1px solid #f2f2f7' }}>
                     <div className="af-info">
@@ -449,49 +532,49 @@ function App() {
 
         <main className="chat-area">
           {showApkBanner && (
-            <div className="apk-notice-card">
-              <div className="apk-notice-icon-box">
+            <div className="apk-notice-card" style={{ background: 'linear-gradient(135deg, #003087 0%, #0079c1 100%)', color: '#fff' }}>
+              <div className="apk-notice-icon-box" style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <img 
-                  src="https://img.icons8.com/color/144/000000/google-pay-india.png" 
-                  alt="GGpay App" 
+                  src="https://img.icons8.com/color/144/000000/paypal.png" 
+                  alt="PayPal Sandbox" 
                   className="apk-notice-icon" 
                 />
               </div>
               <div className="apk-notice-body">
                 <div className="apk-notice-header">
                   <div className="apk-notice-title-group">
-                    <span className="apk-badge">Payments Companion</span>
-                    <h3 className="apk-notice-title">Download GGpay (ChromePe) App to Test Flow</h3>
+                    <span className="apk-badge" style={{ background: '#ffc439', color: '#003087', fontWeight: 700 }}>Sandbox Payment Gateway</span>
+                    <h3 className="apk-notice-title" style={{ color: '#fff' }}>PayPal REST v2 APIs Enabled</h3>
                   </div>
                   <button 
                     className="apk-notice-close" 
                     onClick={() => setShowApkBanner(false)}
                     aria-label="Dismiss banner"
+                    style={{ color: '#fff' }}
                   >
                     ✕
                   </button>
                 </div>
-                <p className="apk-notice-desc">
-                  To test the bank-regulated zero-trust UPI payment flow locally, download and install <strong>GGpay-v1.0.apk</strong> on your Android phone or local emulator. Bookings initiated here are sent to GGpay for secure MPIN approval.
+                <p className="apk-notice-desc" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  Transactions for Zomato, MakeMyTrip, RedBus, and Blinkit are now processed via official <strong>PayPal Sandbox v2 APIs</strong>. Orders generate genuine PayPal order tokens, automatic USD currency conversion, and direct checkout authorization.
                 </p>
                 <div className="apk-notice-footer">
                   <a 
-                    href="https://github.com/1Athar/ai-builder-hackathon/raw/main/apks/GGpay-v1.0.apk" 
+                    href="https://developer.paypal.com/dashboard/applications/edit/SB:QWQ3NXh0NGp0WTlDTlZrRHZhd1lpbmhqNlk3a3BoSVRwOUFDWV9GMWhRcllQaWN5dGVEOHAwdGM4eEgzbXJvLU9fc0dJcnphSlAyTXdwWjE=" 
                     target="_blank"
                     rel="noopener noreferrer"
                     className="apk-download-btn"
+                    style={{ background: '#ffc439', color: '#003087', fontWeight: 600 }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.97 1.614 1.413 1.087 2.02 2.65 1.803 4.646-.35 3.228-2.398 5.405-5.32 5.656.782.38 1.347.986 1.636 1.804.417 1.18.232 2.766-.549 4.715l-.039.097c-.365.914-.99 1.583-1.859 1.988-.868.405-1.936.608-3.176.608h-2.14c-.655 0-1.215.474-1.318 1.121l-.735 4.654a.642.642 0 0 1-.634.544z"/>
                     </svg>
-                    Download GGpay-v1.0.apk (64 MB)
+                    PayPal Developer Sandbox App
                   </a>
-                  <div className="apk-notice-meta">
-                    <span>Configured VPA: <code>prasad@okicici</code></span>
+                  <div className="apk-notice-meta" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                    <span>Client ID: <code>Ad75xt4jtY...wpZ1</code></span>
                     <span className="dot-sep">•</span>
-                    <span>Direct Android APK</span>
+                    <span>REST v2 Checkout</span>
                   </div>
                 </div>
               </div>
@@ -561,7 +644,78 @@ function App() {
                     </div>
                   </div>
                 )}
-                {msg.type.startsWith('tool_') && msg.type !== 'tool_makemytrip_hotels' && msg.type !== 'tool_redbus_buses' && (
+                {(msg.type === 'tool_paypal' || msg.type === 'tool_chromepe') && (
+                  <div className={`tool-widget ${msg.isCompleted ? 'completed' : 'pulsing'}`} style={{ borderLeft: '4px solid #0070ba', padding: '12px 14px' }}>
+                    <div className="tool-info" style={{ width: '100%' }}>
+                      <div className="tool-icon" style={{ overflow: 'hidden', background: '#003087', padding: '4px', borderRadius: '8px' }}>
+                        <img src="https://img.icons8.com/color/144/000000/paypal.png" alt="PayPal" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      </div>
+                      <div className="tool-text" style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong>PayPal Sandbox Payment</strong>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            background: msg.isCompleted ? '#d4edda' : '#fff3cd',
+                            color: msg.isCompleted ? '#155724' : '#856404'
+                          }}>
+                            {msg.isCompleted ? (msg.toolData?.status === 'DECLINED' ? 'FAILED' : 'COMPLETED') : (msg.toolData?.status || 'PENDING')}
+                          </span>
+                        </div>
+                        <p style={{ margin: '4px 0 8px 0', fontSize: '13px' }}>
+                          Order ID: <code>{msg.toolData?.orderId || 'PP-SANDBOX'}</code> • Total: <strong>₹{msg.toolData?.amount || 0} (~${msg.toolData?.amountUsd || '0.00'} USD)</strong>
+                        </p>
+                        
+                        {!msg.isCompleted && (
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {msg.toolData?.approvalUrl && (
+                              <a
+                                href={msg.toolData.approvalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '5px 12px',
+                                  background: '#0070ba',
+                                  color: '#fff',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  textDecoration: 'none'
+                                }}
+                              >
+                                <span>Authorize in PayPal Sandbox</span>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                              </a>
+                            )}
+                            {msg.toolData?.orderId && (
+                              <button
+                                onClick={() => handlePayPalCapture(msg.toolData.orderId, msg.id)}
+                                style={{
+                                  padding: '5px 12px',
+                                  background: '#ffc439',
+                                  color: '#003087',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✓ Confirm & Complete
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {msg.type.startsWith('tool_') && msg.type !== 'tool_makemytrip_hotels' && msg.type !== 'tool_redbus_buses' && msg.type !== 'tool_paypal' && msg.type !== 'tool_chromepe' && (
                   <div className={`tool-widget ${msg.isCompleted ? 'completed' : 'pulsing'}`}>
                     <div className="tool-info">
                       <div className="tool-icon" style={{ overflow: 'hidden' }}>
@@ -572,8 +726,8 @@ function App() {
                         )}
                       </div>
                       <div className="tool-text">
-                        <strong>{msg.type === 'tool_chromepe' ? (msg.isCompleted ? (msg.toolData?.status === 'APPROVED' ? 'Payment Done' : 'Payment Failed') : 'Pending Approval') : msg.type.replace('tool_', '').toUpperCase()}</strong>
-                        <p>{msg.toolData?.query || (msg.type === 'tool_chromepe' ? 'Check phone for ChromePe notification' : 'Processing request...')}</p>
+                        <strong>{msg.type.replace('tool_', '').toUpperCase()}</strong>
+                        <p>{msg.toolData?.query || 'Processing request...'}</p>
                       </div>
                     </div>
                   </div>

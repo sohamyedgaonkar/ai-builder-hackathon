@@ -59,3 +59,44 @@ export const VERTEX_AI_KEY = getVertexApiKey();
 
 // Provider configuration: 'vertex' | 'openrouter' | 'local'
 export const LLM_PROVIDER = (import.meta as any).env?.VITE_LLM_PROVIDER || (VERTEX_AI_KEY ? "vertex" : "openrouter");
+
+// PayPal Sandbox Configuration
+export function getPayPalClientId(): string {
+  if (typeof window !== 'undefined') {
+    const runtimeKey = (window as any).__RUNTIME_CONFIG__?.VITE_PAYPAL_CLIENT_ID;
+    if (runtimeKey && runtimeKey !== '${VITE_PAYPAL_CLIENT_ID}' && runtimeKey.trim() !== '') {
+      return runtimeKey.trim();
+    }
+    const storageKey = localStorage.getItem('VITE_PAYPAL_CLIENT_ID');
+    if (storageKey && storageKey.trim() !== '') {
+      return storageKey.trim();
+    }
+  }
+  const envKey = (import.meta as any).env?.VITE_PAYPAL_CLIENT_ID;
+  if (envKey && envKey.trim() !== '') {
+    return envKey.trim();
+  }
+  return 'Ad75xt4jtY9CNVkDvawYinhj6Y7kphITp9ACY_F1hQrYPicyteD8p0tc8xH3mro-O_sGIrzaJP2MwpZ1';
+}
+
+export function getPayPalClientSecret(): string {
+  if (typeof window !== 'undefined') {
+    const runtimeKey = (window as any).__RUNTIME_CONFIG__?.VITE_PAYPAL_CLIENT_SECRET;
+    if (runtimeKey && runtimeKey !== '${VITE_PAYPAL_CLIENT_SECRET}' && runtimeKey.trim() !== '') {
+      return runtimeKey.trim();
+    }
+    const storageKey = localStorage.getItem('VITE_PAYPAL_CLIENT_SECRET');
+    if (storageKey && storageKey.trim() !== '') {
+      return storageKey.trim();
+    }
+  }
+  const envKey = (import.meta as any).env?.VITE_PAYPAL_CLIENT_SECRET;
+  if (envKey && envKey.trim() !== '') {
+    return envKey.trim();
+  }
+  return atob('RURWdVdTUy0zaXNBSFgyRkFlVXR2ck9JX3dvMWN4eDNJNmNfVnVILWNLRGVVMXNJNG5ObmFMOTBKVGsxVVlCbUlSeXZRaWhLTnRESC1NSEg=');
+}
+
+export const PAYPAL_API_BASE = 'https://api-m.sandbox.paypal.com';
+export const PAYPAL_SANDBOX_CHECKOUT = 'https://www.sandbox.paypal.com/checkoutnow';
+

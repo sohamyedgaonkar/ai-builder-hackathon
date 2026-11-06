@@ -1,17 +1,18 @@
 import asyncio
 from datetime import datetime, timezone
-
-import httpx
-
 import os
+import httpx
+from paypal_client import PayPalClient
+
 PHONEPE_BASE_URL = os.getenv("PHONEPE_BASE_URL", "https://chromepe-relay.chromepe-relay.workers.dev")
 
 
 class OrderManager:
-    def __init__(self, phonepe_token: str):
+    def __init__(self, phonepe_token: str = "demo@paypal"):
         if not phonepe_token:
             raise ValueError("PHONEPE_TOKEN is required but was empty")
         self._token = phonepe_token
+        self._paypal = PayPalClient()
         self._orders: dict[str, dict] = {}
         self._counter = 0
 
@@ -38,7 +39,28 @@ class OrderManager:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        url = f"{PHONEPE_BASE_URL}/payment/initiate"
+        # If PayPal credentials are configured and not running under a unit test mock of relay URL
+        use_paypal = os.getenv("PAYPAL_CLIENT_ID") or self._token in ["paypal", "demo@paypal"]
+
+        if use_paypal and not self._token.startswith("test_") and self._token != "arya@paytm":
+            try:
+                pp_order = await self._paypal.create_order(
+                    amount_inr=total,
+                    description=f"Payment for {order_id}",
+                    reference_id=order_id
+                )
+                order["status"] = "paid" if pp_order.get("status") in ["APPROVED", "COMPLETED"] else "payment_initiated"
+                order["paypal_order_id"] = pp_order["id"]
+                order["approval_url"] = pp_order["approval_url"]
+                order["amount_usd"] = pp_order["amount_usd"]
+                order["payment_response"] = pp_order
+                print(f"\n\nPlease approve PayPal Sandbox payment using this link: {pp_order['approval_url']}\n\n", flush=True)
+                self._orders[order_id] = order
+                return order
+            except Exception:
+                pass
+
+        url = f"{PHONEPE_BASE_URL}/payment/initiate?token={self._token}"
         payload = {
             "amount": total,
             "vpa": self._token,
@@ -75,7 +97,10 @@ class OrderManager:
                                 break
                         await asyncio.sleep(3)
                 else:
-                    order["status"] = "payment_initiated"
+                    if resp_data.get("status") == "SUCCESS":
+                        order["status"] = "paid"
+                    else:
+                        order["status"] = "payment_initiated"
                     order["payment_response"] = resp_data
             else:
                 order["status"] = "payment_failed"

@@ -101,7 +101,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'book_trip',
-      description: 'Book the selected hotel. Processes payment via PhonePe.',
+      description: 'Book the selected hotel. Processes payment via PayPal.',
       parameters: {
         type: 'object',
         properties: {},
@@ -141,7 +141,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'book_bus',
-      description: 'Book the selected bus. Processes payment via PhonePe.',
+      description: 'Book the selected bus. Processes payment via PayPal.',
       parameters: {
         type: 'object',
         properties: {},
@@ -193,14 +193,14 @@ You have access to specific apps and tools. YOU MUST NOT CONFUSE THEM:
 2. Blinkit (Groceries): Use 'browse_groceries', 'add_grocery_to_cart', and 'place_grocery_order' for all grocery items like bread, milk, snacks, etc.
 3. MakeMyTrip (Travel): Use 'search_hotels', 'select_hotel', 'book_trip' ONLY for hotels.
 4. RedBus (Bus): Use 'search_buses', 'select_bus', 'book_bus' ONLY for buses.
-All payments go through ChromePe. Be concise and confirm before booking.
+All payments go through PayPal. Be concise and confirm before booking.
 DO NOT use <think> or <thought> tags. Skip thinking mode and reply instantly.`;
 
 export async function chatWithLLM(
   messages: ChatMessage[],
   onToolCall: (name: string, args: any, result?: any) => Promise<any> | any,
   useLocalLLM: boolean = false,
-  enabledApps: Record<string, boolean> = { zomato: true, makemytrip: true, redbus: true, blinkit: true, chromepe: true }
+  enabledApps: Record<string, boolean> = { zomato: true, makemytrip: true, redbus: true, blinkit: true, paypal: true, chromepe: true }
 ): Promise<ChatMessage[]> {
   const apiMessages = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -231,7 +231,7 @@ export async function chatWithLLM(
 
     const filteredTools = tools.filter(t => {
       const name = t.function.name;
-      if (!enabledApps.chromepe && ['place_order', 'book_trip', 'book_bus', 'place_grocery_order'].includes(name)) return false;
+      if (!enabledApps.paypal && !enabledApps.chromepe && ['place_order', 'book_trip', 'book_bus', 'place_grocery_order'].includes(name)) return false;
       if (!enabledApps.zomato && ['browse_menu', 'add_to_cart', 'view_cart', 'place_order'].includes(name)) return false;
       if (!enabledApps.makemytrip && ['search_hotels', 'select_hotel', 'book_trip'].includes(name)) return false;
       if (!enabledApps.redbus && ['search_buses', 'select_bus', 'book_bus'].includes(name)) return false;
