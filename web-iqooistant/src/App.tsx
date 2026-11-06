@@ -32,6 +32,7 @@ function App() {
     chromepe: true
   });
   const [isAFModalVisible, setAFModalVisible] = useState(false);
+  const [showApkBanner, setShowApkBanner] = useState(true);
   const [isSettingsModalVisible, setSettingsModalVisible] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [keySavedMsg, setKeySavedMsg] = useState('');
@@ -510,6 +511,58 @@ function App() {
         )}
 
         <main className="chat-area">
+          {showApkBanner && (
+            <div className="apk-notice-card" style={{ background: 'linear-gradient(135deg, #003087 0%, #0070ba 100%)', color: '#fff' }}>
+              <div className="apk-notice-icon-box" style={{ background: 'rgba(255,255,255,0.18)' }}>
+                <img 
+                  src="https://img.icons8.com/color/144/000000/paypal.png" 
+                  alt="PayPal Companion App" 
+                  className="apk-notice-icon" 
+                />
+              </div>
+              <div className="apk-notice-body">
+                <div className="apk-notice-header">
+                  <div className="apk-notice-title-group">
+                    <span className="apk-badge" style={{ background: '#e8f4fd', color: '#003087', fontWeight: 700 }}>Companion Android App</span>
+                    <h3 className="apk-notice-title" style={{ color: '#fff' }}>Download PayPal Companion APK</h3>
+                  </div>
+                  <button 
+                    className="apk-notice-close" 
+                    onClick={() => setShowApkBanner(false)}
+                    aria-label="Dismiss banner"
+                    style={{ color: '#fff' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="apk-notice-desc" style={{ color: 'rgba(255,255,255,0.92)' }}>
+                  Test the unified 1-click payment flow: install the new <strong>PayPal Companion App</strong> on your Android phone or emulator. Stored sandbox user credentials authorize transactions instantly and reflect back in real-time.
+                </p>
+                <div className="apk-notice-footer">
+                  <a 
+                    href="/PayPal-v1.0.apk" 
+                    download="PayPal-v1.0.apk"
+                    className="apk-download-btn"
+                    style={{ background: '#ffffff', color: '#003087', fontWeight: 700 }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download PayPal APK (apks/PayPal-v1.0.apk)
+                  </a>
+                  <div className="apk-notice-meta" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                    <span>64 MB</span>
+                    <span className="dot-sep">•</span>
+                    <span>Android 8.0+</span>
+                    <span className="dot-sep">•</span>
+                    <span>PayPal Sandbox Ready</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
         {messages.length === 0 ? (
           <div className="empty-state">
