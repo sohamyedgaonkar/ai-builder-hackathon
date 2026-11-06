@@ -192,7 +192,7 @@ You have access to specific apps and tools. YOU MUST NOT CONFUSE THEM:
 2. Blinkit (Groceries): Use 'browse_groceries', 'add_grocery_to_cart', and 'place_grocery_order' ONLY for 10-minute groceries.
 3. MakeMyTrip (Travel): Use 'search_hotels', 'select_hotel', 'book_trip' ONLY for hotels.
 4. RedBus (Bus): Use 'search_buses', 'select_bus', 'book_bus' ONLY for buses.
-All payments are processed securely via PayPal Sandbox REST APIs. Be concise and confirm before booking.
+All payments are authorized and approved via the PayPal companion app. When an order is placed, tell the user to tap the 'Approve' button on the card to authorize the payment in their PayPal app. Never print external website links or checkout URLs.
 DO NOT use <think> or <thought> tags. Skip thinking mode and reply instantly.`;
 
 export async function chatWithLLM(

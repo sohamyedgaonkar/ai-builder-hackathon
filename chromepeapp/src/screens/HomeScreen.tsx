@@ -5,8 +5,6 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import QuickActionButton from '../components/QuickActionButton';
 import TransactionItem from '../components/TransactionItem';
-import BannerCarousel from '../components/BannerCarousel';
-import RecentPayees from '../components/RecentPayees';
 import {currentUser, transactions} from '../data/mockData';
 import type {HomeStackParams} from '../navigation/AppNavigator';
 import colors from '../theme/colors';
@@ -20,17 +18,24 @@ export default function HomeScreen({navigation}: Props) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.primary} />
+      <StatusBar barStyle="light-content" backgroundColor="#003087" />
       
-      {/* Top Header - GPay Style */}
+      {/* Top Header - PayPal Style */}
       <View style={styles.headerContainer}>
         <View style={styles.headerTop}>
-          <Text style={styles.gpayLogo}>
-            <Text style={{color: '#4285F4'}}>G</Text>
-            <Text style={{color: '#EA4335'}}>P</Text>
-            <Text style={{color: '#FBBC05'}}>a</Text>
-            <Text style={{color: '#34A853'}}>y</Text>
-          </Text>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+            <View style={styles.paypalLogoBadge}>
+              <Text style={styles.paypalLogoBadgeText}>P</Text>
+            </View>
+            <Text style={styles.paypalLogoText}>
+              <Text style={{color: '#FFFFFF'}}>Pay</Text>
+              <Text style={{color: '#0070BA'}}>Pal</Text>
+            </Text>
+            <View style={styles.sandboxPill}>
+              <View style={styles.activeDot} />
+              <Text style={styles.sandboxPillText}>SANDBOX</Text>
+            </View>
+          </View>
           <TouchableOpacity style={styles.profileIconWrapper}>
             <Image 
               source={{uri: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop'}} 
@@ -38,55 +43,61 @@ export default function HomeScreen({navigation}: Props) {
             />
           </TouchableOpacity>
         </View>
-        <View style={styles.searchBar}>
-          <Icon name="search" size={22} color={colors.textSecondary} style={{marginLeft: 12, marginRight: 8}} />
-          <Text style={styles.searchText}>Pay friends and merchants</Text>
+
+        {/* PayPal Balance & User Profile Card */}
+        <View style={styles.balanceCard}>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+            <View>
+              <Text style={styles.balanceLabel}>PayPal Balance</Text>
+              <Text style={styles.balanceAmount}>${currentUser.walletBalanceUsd.toFixed(2)} USD</Text>
+              <Text style={styles.balanceInr}>≈ ₹{currentUser.walletBalance.toLocaleString('en-IN')}</Text>
+            </View>
+            <View style={styles.accountBadge}>
+              <Icon name="verified-user" size={16} color="#007934" />
+              <Text style={styles.accountBadgeText}>Verified</Text>
+            </View>
+          </View>
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.userRow}>
+            <Icon name="account-circle" size={18} color="#003087" />
+            <Text style={styles.userName}>{currentUser.name}</Text>
+            <Text style={styles.userDot}>•</Text>
+            <Text style={styles.userEmail} numberOfLines={1}>{currentUser.email}</Text>
+          </View>
+          <View style={[styles.userRow, {marginTop: 4}]}>
+            <Icon name="credit-card" size={16} color="#545D68" />
+            <Text style={styles.userSub}>Linked: {currentUser.linkedAccount} ({currentUser.cardMasked})</Text>
+          </View>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {/* Promotion Banner */}
-        <View style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 8 }}>
-          <Image source={require('../assets/banner.jpg')} style={{width: '100%', height: 160, borderRadius: 24}} resizeMode="cover" />
-        </View>
-
-        {/* Main Actions Grid (GPay Style) */}
-        <View style={styles.gpaySection}>
+        {/* Quick PayPal Actions */}
+        <View style={styles.actionsSection}>
           <View style={styles.gridRow}>
-            <QuickActionButton icon="qr-code-scanner" label="Scan any QR code" onPress={() => {}} />
-            <QuickActionButton icon="perm-contact-calendar" label="Pay contacts" onPress={() => {}} />
-            <QuickActionButton icon="phone-iphone" label="Pay phone number" onPress={() => {}} />
-            <QuickActionButton icon="account-balance" label="Bank transfer" onPress={() => navigation.navigate('SendMoney')} />
-          </View>
-          <View style={[styles.gridRow, {marginTop: 20}]}>
-            <QuickActionButton icon="alternate-email" label="Pay to UPI ID" onPress={() => {}} />
-            <QuickActionButton icon="person" label="Self transfer" onPress={() => {}} />
-            <QuickActionButton icon="receipt" label="Pay bills" onPress={() => navigation.navigate('Bills')} />
-            <QuickActionButton icon="smartphone" label="Mobile recharge" onPress={() => navigation.navigate('Recharge')} />
+            <QuickActionButton icon="send" label="Send" onPress={() => navigation.navigate('SendMoney')} />
+            <QuickActionButton icon="call-received" label="Request" onPress={() => {}} />
+            <QuickActionButton icon="qr-code-scanner" label="Scan to Pay" onPress={() => {}} />
+            <QuickActionButton icon="account-balance-wallet" label="Wallet" onPress={() => navigation.navigate('SendMoney')} />
           </View>
         </View>
-
-        {/* Recent Payees */}
-        <RecentPayees />
-
-        {/* Banners */}
-        <BannerCarousel />
 
         {/* Bills & Recharges */}
-        <View style={styles.gpaySection}>
-          <Text style={styles.sectionLabel}>Bills, recharges and more</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Payments & Utility</Text>
           <View style={styles.gridRow}>
-            <QuickActionButton icon="tv" label="DTH / Cable TV" onPress={() => navigation.navigate('Bills')} />
+            <QuickActionButton icon="receipt" label="Bills" onPress={() => navigation.navigate('Bills')} />
+            <QuickActionButton icon="smartphone" label="Recharge" onPress={() => navigation.navigate('Recharge')} />
             <QuickActionButton icon="bolt" label="Electricity" onPress={() => navigation.navigate('Bills')} />
-            <QuickActionButton icon="wifi" label="Broadband / Landline" onPress={() => navigation.navigate('Bills')} />
-            <QuickActionButton icon="directions-car" label="FASTag recharge" onPress={() => navigation.navigate('Bills')} />
+            <QuickActionButton icon="wifi" label="Broadband" onPress={() => navigation.navigate('Bills')} />
           </View>
         </View>
 
         {/* Recent Transactions */}
         <View style={[styles.section, {marginBottom: 20}]}>
-          <Text style={styles.sectionLabel}>Recent Transactions</Text>
+          <Text style={styles.sectionLabel}>Recent PayPal Activity</Text>
           {recent.map(t => (
             <TransactionItem
               key={t.id}
@@ -98,22 +109,17 @@ export default function HomeScreen({navigation}: Props) {
             />
           ))}
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: colors.primary},
-  scrollContent: {
-    backgroundColor: colors.background,
-    paddingBottom: 40,
-  },
+  safe: {flex: 1, backgroundColor: '#003087'},
   headerContainer: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#003087',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 16,
   },
   headerTop: {
@@ -122,50 +128,163 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  gpayLogo: {
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -1,
+  paypalLogoBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#0070BA',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  searchBar: {
-    flex: 1,
+  paypalLogoBadgeText: {
+    color: '#FFC439',
+    fontSize: 20,
+    fontWeight: '900',
+    fontStyle: 'italic',
+  },
+  paypalLogoText: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  sandboxPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F3F4',
-    height: 48,
-    borderRadius: 24,
-    marginRight: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
   },
-  searchText: {
-    color: colors.textSecondary,
-    fontSize: 16,
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFC439',
+  },
+  sandboxPillText: {
+    fontSize: 10,
+    color: '#FFC439',
+    fontWeight: '700',
   },
   profileIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: '#FFC439',
   },
   profileImage: {
     width: '100%',
     height: '100%',
   },
-  gpaySection: {
-    backgroundColor: colors.card,
+  balanceCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  balanceLabel: {
+    fontSize: 12,
+    color: '#545D68',
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  balanceAmount: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#003087',
+    marginTop: 2,
+  },
+  balanceInr: {
+    fontSize: 13,
+    color: '#545D68',
+    marginTop: 2,
+  },
+  accountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F4EA',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  accountBadgeText: {
+    fontSize: 11,
+    color: '#007934',
+    fontWeight: '700',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#E8ECF0',
+    marginVertical: 12,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0C0C0C',
+    marginLeft: 6,
+  },
+  userDot: {
+    color: '#545D68',
+    marginHorizontal: 4,
+  },
+  userEmail: {
+    fontSize: 12,
+    color: '#545D68',
+    flex: 1,
+  },
+  userSub: {
+    fontSize: 12,
+    color: '#545D68',
+    marginLeft: 6,
+  },
+  scrollContent: {
+    backgroundColor: '#F5F7FA',
+    paddingBottom: 40,
+  },
+  actionsSection: {
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 14,
     paddingHorizontal: 16,
-    paddingVertical: 24,
-    borderRadius: 24,
+    paddingVertical: 18,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   sectionLabel: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    marginBottom: 20,
-    letterSpacing: -0.3,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#003087',
+    marginBottom: 16,
   },
   gridRow: {
     flexDirection: 'row',

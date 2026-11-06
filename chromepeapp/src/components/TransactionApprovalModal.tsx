@@ -9,10 +9,12 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import colors from '../theme/colors';
+import {currentUser} from '../data/mockData';
 
 export interface PendingTransaction {
   txnId: string;
   amount: string;
+  amountUsd?: string;
   vpa: string;
   merchantName: string;
   description: string;
@@ -41,37 +43,76 @@ export default function TransactionApprovalModal({
     setLoading(false);
   };
 
+  const formattedAmount = transaction.amount ? transaction.amount.toString().replace(/[^\d.]/g, '') : '0.00';
+  const usdAmount = transaction.amountUsd || (Number(formattedAmount) / 83.3).toFixed(2);
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
         <View style={styles.card}>
+          {/* Top PayPal Header */}
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Icon name="payment" size={32} color={colors.primary} />
+            <View style={styles.paypalBadge}>
+              <Text style={styles.paypalBadgeText}>P</Text>
             </View>
-            <Text style={styles.title}>Payment Request</Text>
-            <Text style={styles.subtitle}>from ChromePe Extension</Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.title}>
+                <Text style={{ color: '#003087', fontWeight: '800' }}>Pay</Text>
+                <Text style={{ color: '#0070ba', fontWeight: '800' }}>Pal</Text>
+                <Text style={{ color: '#545D68', fontSize: 16, fontWeight: '500' }}> Checkout</Text>
+              </Text>
+              <View style={styles.sandboxBadge}>
+                <View style={styles.activeDot} />
+                <Text style={styles.sandboxText}>Sandbox Account Linked</Text>
+              </View>
+            </View>
           </View>
 
+          {/* Amount Display */}
           <View style={styles.amountContainer}>
-            <Text style={styles.currency}>₹</Text>
-            <Text style={styles.amount}>{transaction.amount}</Text>
+            <Text style={styles.currencyUsd}>${usdAmount}</Text>
+            <Text style={styles.currencyInr}>≈ ₹{formattedAmount}</Text>
           </View>
 
+          {/* Stored User Details Card */}
+          <View style={styles.userCard}>
+            <View style={styles.userHeader}>
+              <Icon name="account-circle" size={24} color="#003087" />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.userName}>{currentUser.name}</Text>
+                <Text style={styles.userEmail}>{currentUser.email}</Text>
+              </View>
+              <View style={styles.verifiedPill}>
+                <Icon name="check" size={14} color="#007934" />
+                <Text style={styles.verifiedText}>Saved</Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.paymentMethodRow}>
+              <Icon name="credit-card" size={20} color="#0070ba" />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.methodLabel}>Payment Method</Text>
+                <Text style={styles.methodValue}>PayPal Balance ($150.00) & Visa {currentUser.cardMasked}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Transaction Metadata */}
           <View style={styles.detailsBox}>
-            <DetailRow label="To" value={transaction.merchantName} />
-            <DetailRow label="VPA" value={transaction.vpa} />
-            {transaction.description ? (
-              <DetailRow label="Note" value={transaction.description} />
-            ) : null}
+            <DetailRow label="Merchant" value={transaction.merchantName || 'Online Merchant'} />
+            <DetailRow label="Order ID" value={transaction.txnId} />
+            <DetailRow label="Description" value={transaction.description || 'In-App Purchase'} />
           </View>
 
+          {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.rejectButton}
               onPress={onReject}
               disabled={loading}>
-              <Text style={styles.rejectText}>Decline</Text>
+              <Text style={styles.rejectText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -79,9 +120,15 @@ export default function TransactionApprovalModal({
               onPress={handleApprove}
               disabled={loading}>
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator color="#003087" />
+                  <Text style={styles.approveText}>Authorizing...</Text>
+                </View>
               ) : (
-                <Text style={styles.approveText}>Approve</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.paypalP}>P</Text>
+                  <Text style={styles.approveText}>Approve with PayPal</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -105,115 +152,203 @@ function DetailRow({label, value}: {label: string; value: string}) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,18,50,0.6)',
     justifyContent: 'flex-end',
   },
   card: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: 24,
-    paddingBottom: 40,
-    elevation: 8,
+    paddingBottom: 36,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: -4},
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: {width: 0, height: -6},
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primary + '15',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 18,
+  },
+  paypalBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#003087',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#003087',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  paypalBadgeText: {
+    color: '#FFC439',
+    fontSize: 24,
+    fontWeight: '900',
+    fontStyle: 'italic',
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  amountContainer: {
+  sandboxBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
+    gap: 4,
+    marginTop: 2,
   },
-  currency: {
-    fontSize: 32,
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#007934',
+  },
+  sandboxText: {
+    fontSize: 12,
+    color: '#007934',
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginRight: 4,
   },
-  amount: {
-    fontSize: 48,
+  amountContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  currencyUsd: {
+    fontSize: 38,
+    fontWeight: '800',
+    color: '#003087',
+  },
+  currencyInr: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#545D68',
+    marginTop: 2,
+  },
+  userCard: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E1E7EB',
+    marginBottom: 16,
+  },
+  userHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#0C0C0C',
+  },
+  userEmail: {
+    fontSize: 12,
+    color: '#545D68',
+  },
+  verifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F4EA',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  verifiedText: {
+    fontSize: 11,
+    color: '#007934',
+    fontWeight: '700',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E1E7EB',
+    marginVertical: 10,
+  },
+  paymentMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  methodLabel: {
+    fontSize: 11,
+    color: '#545D68',
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  methodValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#003087',
+    marginTop: 1,
   },
   detailsBox: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 32,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E8ECF0',
+    marginBottom: 24,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   rowLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: '#545D68',
     flex: 1,
   },
   rowValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#0C0C0C',
     flex: 2,
     textAlign: 'right',
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   rejectButton: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: '#f1f1f1',
+    paddingVertical: 15,
+    borderRadius: 24,
+    backgroundColor: '#F1F3F4',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   rejectText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: '#545D68',
   },
   approveButton: {
     flex: 2,
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: '#34A853',
+    paddingVertical: 15,
+    borderRadius: 24,
+    backgroundColor: '#FFC439', // PayPal Gold
     alignItems: 'center',
-    shadowColor: '#34A853',
+    justifyContent: 'center',
+    shadowColor: '#FFC439',
     shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 4,
+  },
+  paypalP: {
+    fontSize: 18,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    color: '#003087',
   },
   approveText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: '#003087',
   },
 });

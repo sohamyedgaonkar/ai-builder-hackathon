@@ -159,25 +159,23 @@ const ToolCallIndicator = ({ type, data, isCompleted, onApprove }: { type: 'zoma
         </View>
         {!hideButton && (
           <View style={{ flexDirection: 'row', gap: 6 }}>
-            {data?.approvalUrl && (
-              <TouchableOpacity
-                style={[styles.approveButton, { backgroundColor: '#0070ba', paddingHorizontal: 10 }]}
-                onPress={() => {
-                  Linking.openURL(data.approvalUrl).catch(() => {
-                    console.log('Open approval link simulated');
-                  });
-                }}>
-                <Text style={styles.approveButtonText}>Open</Text>
-              </TouchableOpacity>
-            )}
             <TouchableOpacity
-              style={[styles.approveButton, { backgroundColor: '#ffc439' }]}
+              style={[styles.approveButton, { backgroundColor: '#ffc439', paddingHorizontal: 16 }]}
               onPress={() => {
-                if (onApprove) {
-                  onApprove();
-                }
+                const orderId = data?.orderId || 'ORD-' + Date.now();
+                const amount = data?.amount || data?.amountUsd || '120';
+                const amountUsd = data?.amountUsd || (Number(amount) / 83.3).toFixed(2);
+                const merchant = data?.merchant || 'Zomato Foods';
+                const deepLink = `chromepe://approve?order_id=${encodeURIComponent(orderId)}&amount=${encodeURIComponent(amount)}&amountUsd=${encodeURIComponent(amountUsd)}&merchant=${encodeURIComponent(merchant)}`;
+                
+                Linking.openURL(deepLink).catch(() => {
+                  console.log('Falling back to direct approval');
+                  if (onApprove) {
+                    onApprove();
+                  }
+                });
               }}>
-              <Text style={[styles.approveButtonText, { color: '#003087' }]}>Approve</Text>
+              <Text style={[styles.approveButtonText, { color: '#003087', fontWeight: '800' }]}>Approve</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -358,26 +356,49 @@ export default function App() {
 
   const activeTransactionId = useRef<string | null>(null);
   const paymentResolver = useRef<((status: string) => void) | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
 
   useEffect(() => {
     const handleUrl = (url: string | null | undefined) => {
       if (url && url.includes('iqooistant://')) {
-        // Only process the deep link if there is an actively waiting transaction!
-        if (!activeTransactionId.current) return;
-        
+        const isDeclined = url.includes('status=declined') || url.includes('status=DECLINED');
+        const status = isDeclined ? 'DECLINED' : 'COMPLETED';
+        const resolution = isDeclined ? 'DECLINED' : 'APPROVED';
+
+        let extractedOrderId = '';
+        const orderMatch = url.match(/[?&](?:order_id|orderId)=([^&]+)/);
+        if (orderMatch) {
+          extractedOrderId = decodeURIComponent(orderMatch[1]);
+        }
+
         const currentTxnId = activeTransactionId.current;
         activeTransactionId.current = null; // Clear active txn to prevent duplicate fires
 
-        const status = url.includes('status=declined') ? 'DECLINED' : 'APPROVED';
-        
-        setMessages(prev => prev.map(m => (m.type === 'tool_paypal' || m.type === 'tool_chromepe') && m.id === currentTxnId ? {
-           ...m,
-           isCompleted: true,
-           toolData: { ...m.toolData, status }
-        } : m));
+        setMessages(prev => prev.map(m => {
+          if ((m.type === 'tool_paypal' || m.type === 'tool_chromepe') && (!currentTxnId || m.id === currentTxnId || (extractedOrderId && m.toolData?.orderId === extractedOrderId))) {
+            return {
+              ...m,
+              isCompleted: true,
+              toolData: {
+                ...m.toolData,
+                status,
+                orderId: extractedOrderId || m.toolData?.orderId,
+              },
+            };
+          }
+          return m;
+        }));
 
         if (paymentResolver.current) {
-          paymentResolver.current(status);
+          paymentResolver.current(resolution);
           paymentResolver.current = null;
         }
       }
@@ -411,15 +432,22 @@ export default function App() {
         if (['place_order', 'book_trip', 'book_bus', 'place_grocery_order'].includes(toolName)) {
           const txnId = Date.now().toString();
           activeTransactionId.current = txnId;
+
+          const merchantName = 
+            toolName === 'place_order' ? (toolArgs?.restaurant || 'Zomato Foods') :
+            toolName === 'book_trip' ? (toolArgs?.hotel_name || 'MakeMyTrip Hotels') :
+            toolName === 'book_bus' ? (toolArgs?.bus_name || 'RedBus Travels') :
+            'Blinkit Groceries';
           
           setMessages((prev) => [...prev, {
             id: txnId,
             type: 'tool_paypal',
             toolData: {
-              amount: result?.amountInr || result?.total || toolArgs?.total || 0,
+              amount: result?.amountInr || result?.total || toolArgs?.total || 120,
               amountUsd: result?.amountUsd,
               orderId: result?.orderId,
               approvalUrl: result?.approvalUrl,
+              merchant: merchantName,
               status: result?.status || 'CREATED',
             },
           }]);
@@ -720,6 +748,7 @@ export default function App() {
         </Modal>
 
         <FlatList
+          ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -844,7 +873,7 @@ const styles = StyleSheet.create({
   },
   messageList: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 140,
     flexGrow: 1,
   },
   userMessageBubble: {
