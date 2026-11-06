@@ -121,7 +121,7 @@ export default function TransactionApprovalModal({
               disabled={loading}>
               {loading ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <ActivityIndicator color="#003087" />
+                  <ActivityIndicator color="#FFFFFF" />
                   <Text style={styles.approveText}>Authorizing...</Text>
                 </View>
               ) : (
@@ -331,12 +331,12 @@ const styles = StyleSheet.create({
     flex: 2,
     paddingVertical: 15,
     borderRadius: 24,
-    backgroundColor: '#FFC439', // PayPal Gold
+    backgroundColor: '#0070BA', // PayPal Blue
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FFC439',
+    shadowColor: '#0070BA',
     shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -344,11 +344,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     fontStyle: 'italic',
-    color: '#003087',
+    color: '#FFFFFF',
   },
   approveText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#003087',
+    color: '#FFFFFF',
   },
 });

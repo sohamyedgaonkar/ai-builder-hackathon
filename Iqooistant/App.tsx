@@ -158,9 +158,9 @@ const ToolCallIndicator = ({ type, data, isCompleted, onApprove }: { type: 'zoma
           <Text style={styles.toolSubtitle}>{subtitle}</Text>
         </View>
         {!hideButton && (
-          <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
             <TouchableOpacity
-              style={[styles.approveButton, { backgroundColor: '#ffc439', paddingHorizontal: 16 }]}
+              style={[styles.approveButton, { backgroundColor: '#0070ba', paddingHorizontal: 16 }]}
               onPress={() => {
                 const orderId = data?.orderId || 'ORD-' + Date.now();
                 const amount = data?.amount || data?.amountUsd || '120';
@@ -175,7 +175,7 @@ const ToolCallIndicator = ({ type, data, isCompleted, onApprove }: { type: 'zoma
                   }
                 });
               }}>
-              <Text style={[styles.approveButtonText, { color: '#003087', fontWeight: '800' }]}>Approve</Text>
+              <Text style={[styles.approveButtonText, { color: '#ffffff', fontWeight: '700' }]}>Approve</Text>
             </TouchableOpacity>
           </View>
         )}

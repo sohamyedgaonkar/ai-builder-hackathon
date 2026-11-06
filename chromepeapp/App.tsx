@@ -77,12 +77,22 @@ export default function App() {
         const data: any = await response.json();
         
         if (data && data.pending && data.txnId) {
-          setPendingTxn(data);
+          setShowSplash(false);
+          const rawAmount = data.amount ? data.amount.toString() : '120';
+          const numAmount = Number(rawAmount.replace(/[^\d.]/g, '')) || 120;
+          setPendingTxn({
+            txnId: data.txnId,
+            amount: rawAmount,
+            amountUsd: (numAmount / 83.3).toFixed(2),
+            vpa: data.vpa || 'paypal',
+            merchantName: data.merchantName || 'PayPal Partner Merchant',
+            description: data.description || 'Order Authorization',
+          });
         }
       } catch (e) {
         // Polling error ignored
       }
-    }, 5000);
+    }, 2500);
 
     return () => clearInterval(interval);
   }, [pendingTxn]);
