@@ -49,3 +49,4 @@ output.json
 .agents/
 .archify/
 skills-lock.json
+.firebase/
