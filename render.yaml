@@ -1,0 +1,28 @@
+services:
+  # PayBuild Python MCP & Commerce Server on Render
+  - type: web
+    name: paybuild-mcp-server
+    runtime: python
+    buildCommand: "pip install -r Payment-mcp-servers/requirements.txt"
+    startCommand: "python Payment-mcp-servers/server.py"
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+
+  # PayBuild Web Frontend on Render
+  - type: web
+    name: paybuild-web-app
+    runtime: static
+    buildCommand: "cd web-iqooistant && npm install && npm run build"
+    staticPublishPath: "./web-iqooistant/dist"
+    envVars:
+      - key: VITE_PAYPAL_ENV
+        value: sandbox
+      - key: VITE_PAYPAL_CLIENT_ID
+        sync: false

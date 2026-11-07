@@ -1,0 +1,66 @@
+{
+  "info": {
+    "name": "PayBuild PayPal Orders v2 & Relay Collection",
+    "description": "Postman API collection for testing and validating PayBuild's PayPal Orders v2 sandbox endpoints, token authentication, and real-time webhook listeners.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. PayPal OAuth 2.0 Token (Sandbox)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "client_credentials" }
+          ]
+        },
+        "url": {
+          "raw": "https://api-m.sandbox.paypal.com/v1/oauth2/token",
+          "protocol": "https",
+          "host": ["api-m", "sandbox", "paypal", "com"],
+          "path": ["v1", "oauth2", "token"]
+        }
+      }
+    },
+    {
+      "name": "2. Create PayPal Order v2 (Intent CAPTURE)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"intent\": \"CAPTURE\",\n  \"purchase_units\": [\n    {\n      \"amount\": {\n        \"currency_code\": \"USD\",\n        \"value\": \"120.00\"\n      },\n      \"description\": \"PayBuild MakeMyTrip Hotel Booking #MMT-4491\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "https://api-m.sandbox.paypal.com/v2/checkout/orders",
+          "protocol": "https",
+          "host": ["api-m", "sandbox", "paypal", "com"],
+          "path": ["v2", "checkout", "orders"]
+        }
+      }
+    },
+    {
+      "name": "3. Capture PayPal Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "url": {
+          "raw": "https://api-m.sandbox.paypal.com/v2/checkout/orders/{{order_id}}/capture",
+          "protocol": "https",
+          "host": ["api-m", "sandbox", "paypal", "com"],
+          "path": ["v2", "checkout", "orders", "{{order_id}}", "capture"]
+        }
+      }
+    }
+  ]
+}
